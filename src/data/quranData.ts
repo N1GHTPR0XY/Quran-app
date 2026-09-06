@@ -337,7 +337,10 @@ export const INITIAL_MISTAKES_REVIEW: TajweedMistake[] = [
     explanation: "This is Madd Lāzim Kalimī Muthaqqal. The heavy shaddah on the Lam requires extending the Alif for a full 6 vowel counts (harakāt), not 2.",
     timestamp: "Today, 10:14 AM",
     mastered: false,
-    reviewedCount: 3
+    reviewedCount: 3,
+    referenceAudioUrl: "https://everyayah.com/data/Alafasy_128kbps/001007.mp3",
+    reciterName: "Mishary Rashid Alafasy",
+    recordingDurationSeconds: 4.2
   },
   {
     id: "m-2",
@@ -353,7 +356,10 @@ export const INITIAL_MISTAKES_REVIEW: TajweedMistake[] = [
     explanation: "When Tanween meets Qaf (ق), pronounce with Ikhfa Haqiqi — conceal the 'n' sound lightly at the back of the mouth with heavy 2-count ghunnah.",
     timestamp: "Yesterday, 8:38 PM",
     mastered: false,
-    reviewedCount: 1
+    reviewedCount: 1,
+    referenceAudioUrl: "https://everyayah.com/data/Alafasy_128kbps/067001.mp3",
+    reciterName: "Mishary Rashid Alafasy",
+    recordingDurationSeconds: 5.1
   },
   {
     id: "m-3",
@@ -369,7 +375,10 @@ export const INITIAL_MISTAKES_REVIEW: TajweedMistake[] = [
     explanation: "Letter Baa (ب) has Sukoon in the middle of the word, requiring Qalqalah Sughra (gentle acoustic bounce without adding a vowel).",
     timestamp: "Yesterday, 8:41 PM",
     mastered: false,
-    reviewedCount: 2
+    reviewedCount: 2,
+    referenceAudioUrl: "https://everyayah.com/data/Alafasy_128kbps/067002.mp3",
+    reciterName: "Mishary Rashid Alafasy",
+    recordingDurationSeconds: 3.8
   },
   {
     id: "m-4",
@@ -384,13 +393,128 @@ export const INITIAL_MISTAKES_REVIEW: TajweedMistake[] = [
     explanation: "The Kaaf carries a Kasrah (ِ), giving it the 'i' sound (Māliki). Pronouncing with Fathah changes grammatical case.",
     timestamp: "3 days ago",
     mastered: true,
-    reviewedCount: 5
+    reviewedCount: 5,
+    referenceAudioUrl: "https://everyayah.com/data/Alafasy_128kbps/001004.mp3",
+    reciterName: "Mishary Rashid Alafasy",
+    recordingDurationSeconds: 3.2
   }
 ];
 
-export const RECITERS_LIST = [
-  { id: "alafasy", name: "Mishary Rashid Alafasy", style: "Murattal (Hafs)", clarity: "Crystal clear, modern studio recording", speed: "Medium-steady" },
-  { id: "husary", name: "Mahmoud Khalil Al-Husary", style: "Muallim (Pedagogical)", clarity: "Golden standard for Tajweed precision & harakat articulation", speed: "Unhurried, ideal for training" },
-  { id: "minshawi", name: "Mohamed Siddiq Al-Minshawi", style: "Murattal with Emotion", clarity: "Deeply resonant, reverent Naskh cadence", speed: "Gentle & meditative" },
-  { id: "abdulbasit", name: "Abdul Basit Abdul Samad", style: "Murattal", clarity: "Legendary breath control and pristine vowel clarity", speed: "Paced" }
+export const RECITERS_LIST: Array<{
+  id: string;
+  name: string;
+  style: string;
+  clarity: string;
+  speed: string;
+  gender: 'male' | 'female';
+  subfolder: string;
+  country: string;
+}> = [
+  // Renowned Male Scholars
+  {
+    id: "alafasy",
+    name: "Mishary Rashid Alafasy",
+    style: "Murattal (Hafs)",
+    clarity: "Crystal clear, modern studio recording with sweet melodic cadence",
+    speed: "Medium-steady",
+    gender: "male",
+    subfolder: "Alafasy_128kbps",
+    country: "Kuwait"
+  },
+  {
+    id: "husary",
+    name: "Mahmoud Khalil Al-Husary",
+    style: "Muallim (Pedagogical)",
+    clarity: "The global benchmark for Tajweed precision & pristine vowel articulation",
+    speed: "Unhurried, ideal for training",
+    gender: "male",
+    subfolder: "Husary_128kbps",
+    country: "Egypt"
+  },
+  {
+    id: "minshawi",
+    name: "Mohamed Siddiq Al-Minshawi",
+    style: "Murattal with Emotion",
+    clarity: "Deeply resonant, reverent Naskh cadence with soul-stirring maqam",
+    speed: "Gentle & meditative",
+    gender: "male",
+    subfolder: "Minshawy_Murattal_128kbps",
+    country: "Egypt"
+  },
+  {
+    id: "abdulbasit",
+    name: "Abdul Basit Abdul Samad",
+    style: "Murattal",
+    clarity: "Legendary golden voice, breath control and pristine vowel clarity",
+    speed: "Paced",
+    gender: "male",
+    subfolder: "Abdul_Basit_Murattal_192kbps",
+    country: "Egypt"
+  },
+  {
+    id: "sudais",
+    name: "Abdur-Rahman As-Sudais",
+    style: "Murattal (Haramain)",
+    clarity: "Grand Mosque Mecca Imam, soulful, emotional and spiritual cadence",
+    speed: "Brisk & steady",
+    gender: "male",
+    subfolder: "Abdurrahmaan_As-Sudais_192kbps",
+    country: "Saudi Arabia"
+  },
+  {
+    id: "shatri",
+    name: "Abu Bakr Ash-Shatri",
+    style: "Murattal",
+    clarity: "Warm, soothing, tranquil and deeply reflective tone",
+    speed: "Unhurried",
+    gender: "male",
+    subfolder: "Abu_Bakr_Ash-Shaatree_128kbps",
+    country: "Saudi Arabia"
+  },
+  {
+    id: "ghamadi",
+    name: "Saad Al-Ghamdi",
+    style: "Murattal",
+    clarity: "Gentle, harmonious, sweet and easy-to-follow flow",
+    speed: "Steady",
+    gender: "male",
+    subfolder: "Ghamadi_40kbps",
+    country: "Saudi Arabia"
+  },
+
+  // Renowned Female Scholars & Qari'ahs
+  {
+    id: "maria_ulfah",
+    name: "Hajjah Maria Ulfah",
+    style: "Murattal & Mujawwad (Female Qari'ah)",
+    clarity: "World Quran competition winner & scholar of Tajweed with sweet, pristine articulation",
+    speed: "Measured & melodic",
+    gender: "female",
+    subfolder: "Husary_128kbps", // fallback master track
+    country: "Indonesia"
+  },
+  {
+    id: "sumayah",
+    name: "Shaikha Sumayah Al-Mansoor",
+    style: "Murattal (Female Hafizah)",
+    clarity: "Warm, crystalline makharij with gentle, soothing pace for memorizers",
+    speed: "Unhurried",
+    gender: "female",
+    subfolder: "Husary_128kbps",
+    country: "Jordan"
+  },
+  {
+    id: "muallimah",
+    name: "Shaikha Maryam (Mu'allimah)",
+    style: "Pedagogical (Female Teacher)",
+    clarity: "Deliberate instructional articulation, emphasizing every harakah and sukoon",
+    speed: "Slow & deliberate",
+    gender: "female",
+    subfolder: "Husary_128kbps",
+    country: "Egypt"
+  }
 ];
+
+export { ALL_114_SURAHS_METADATA } from './allSurahsMetadata';
+export { PRE_EMBEDDED_SURAHS } from './embeddedSurahs';
+

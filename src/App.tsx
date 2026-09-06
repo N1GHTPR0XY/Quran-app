@@ -153,6 +153,7 @@ export default function App() {
             direction={direction}
             onNavigate={setCurrentScreen}
             onRecordMistake={handleRecordMistake}
+            onSelectSurah={setSelectedSurah}
           />
         )}
 
@@ -170,6 +171,7 @@ export default function App() {
           <ProgressAnalyticsScreen
             user={user}
             direction={direction}
+            mistakes={mistakes}
           />
         )}
 

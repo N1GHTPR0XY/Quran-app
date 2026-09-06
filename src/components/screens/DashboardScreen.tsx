@@ -14,7 +14,9 @@ import {
   BookOpen,
   RotateCcw,
   CloudCheck,
-  ShieldAlert
+  ShieldAlert,
+  Trophy,
+  Award
 } from 'lucide-react';
 
 interface DashboardScreenProps {
@@ -78,7 +80,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
 
         {/* Streak & Memory Stats Pill */}
-        <div className="flex items-center gap-3 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F]">
             <Flame className="w-5 h-5 text-[#D96E54] fill-[#D96E54]" />
             <div>
@@ -102,6 +104,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
               </div>
             </div>
           </div>
+
+          <button
+            onClick={() => onNavigate('analytics')}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#C5A059]/15 hover:bg-[#C5A059]/25 dark:bg-[#C5A059]/10 border border-[#C5A059]/30 transition-all cursor-pointer group"
+            title={isRtl ? 'عرض الأوسمة والإنجازات' : 'View Milestones & Badges'}
+          >
+            <Trophy className="w-4 h-4 text-[#C5A059] transition-transform group-hover:scale-110" />
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="font-bold text-sm text-[#1A4D4E] dark:text-[#E8ECE9]">6/10</span>
+                <span className="text-[10px] uppercase tracking-wider text-[#C5A059] font-bold">
+                  {isRtl ? 'أوسمة' : 'Badges'}
+                </span>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
 
