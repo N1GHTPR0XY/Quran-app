@@ -1,0 +1,6 @@
+{
+  "name": "Tadreeb - Quran Memorization & Recitation Training",
+  "description": "Design system, screen-by-screen architectural specifications, and interactive live recitation trainer with gentle acoustic correction for Tadreeb.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

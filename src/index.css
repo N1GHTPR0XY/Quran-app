@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-arabic: 'Amiri', 'Scheherazade New', 'Traditional Arabic', serif;
+    --font-latin: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --canvas: #FDFBF7;
+    --primary: #1A4D4E;
+    --primary-dark: #0E3B3C;
+    --accent: #C5A059;
+    --border-color: #E8E2D6;
+    --surface-subtle: #F5F2ED;
+  }
+
+  .dark {
+    --canvas: #0E1A1A;
+    --primary: #27827E;
+    --primary-dark: #E8ECE9;
+    --accent: #C5A059;
+    --border-color: #232E2F;
+    --surface-subtle: #152223;
+  }
+}
+
+.font-arabic {
+  font-family: var(--font-arabic);
+  font-feature-settings: "cv01", "cv02", "cv03", "calt", "liga";
+}
+
+.font-latin {
+  font-family: var(--font-latin);
+}
+
+/* Islamic Geometric Pattern subtly layered */
+.bg-islamic-pattern {
+  background-image: radial-gradient(rgba(197, 160, 89, 0.09) 1px, transparent 1px), radial-gradient(rgba(26, 77, 78, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
+
+.dark .bg-islamic-pattern {
+  background-image: radial-gradient(rgba(197, 160, 89, 0.12) 1px, transparent 1px), radial-gradient(rgba(39, 130, 126, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
+
+/* Custom smooth scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(197, 160, 89, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 160, 89, 0.45);
+}
+
