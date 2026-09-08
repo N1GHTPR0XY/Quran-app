@@ -14,8 +14,11 @@ import {
   X,
   Smartphone,
   Flame,
-  Award
+  Award,
+  LogOut,
+  ExternalLink
 } from 'lucide-react';
+import { auth, fbSignOut } from '../../services/firebase';
 
 interface ProfileSettingsScreenProps {
   user: UserProfile;
@@ -23,6 +26,7 @@ interface ProfileSettingsScreenProps {
   direction: Direction;
   onOpenAuth: () => void;
   onNavigate: (screen: ScreenId) => void;
+  onSignOut?: () => void;
 }
 
 export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
@@ -30,7 +34,8 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
   onUpdateUser,
   direction,
   onOpenAuth,
-  onNavigate
+  onNavigate,
+  onSignOut
 }) => {
   const isRtl = direction === 'rtl';
   const [isSyncing, setIsSyncing] = useState(false);
@@ -160,15 +165,45 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
           </div>
         </div>
 
-        {/* Guest Link CTA */}
-        {user.isGuest && (
+        {/* Action Controls: Link, Sign Out, and New Window */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {user.isGuest ? (
+            <button
+              onClick={onOpenAuth}
+              className="px-5 py-2.5 rounded-xl bg-[#1A4D4E] hover:bg-[#153e3f] dark:bg-[#C5A059] dark:hover:bg-[#b38f48] text-white dark:text-[#0E1A1A] font-bold text-xs shadow-sm transition-opacity whitespace-nowrap cursor-pointer"
+            >
+              {isRtl ? 'ربط الحساب السحابي' : 'Link Google Cloud'}
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                try {
+                  await fbSignOut(auth);
+                } catch (e) {
+                  console.error('Sign out error:', e);
+                }
+                if (onSignOut) {
+                  onSignOut();
+                }
+              }}
+              className="px-4 py-2.5 rounded-xl border border-[#D96E54]/40 hover:bg-[#FDEDEC] dark:hover:bg-[#2A1515] text-[#D96E54] font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>{isRtl ? 'تسجيل الخروج' : 'Sign Out'}</span>
+            </button>
+          )}
+
           <button
-            onClick={onOpenAuth}
-            className="px-5 py-2.5 rounded-xl bg-[#1A4D4E] hover:bg-[#153e3f] dark:bg-[#C5A059] dark:hover:bg-[#b38f48] text-white dark:text-[#0E1A1A] font-bold text-xs shadow-sm transition-opacity whitespace-nowrap cursor-pointer"
+            onClick={() => {
+              window.open(window.location.href, '_blank');
+            }}
+            className="px-3.5 py-2.5 rounded-xl border border-[#E8E2D6] dark:border-[#232E2F] hover:bg-[#E8E2D6]/40 dark:hover:bg-[#232E2F] text-xs font-semibold text-[#5F6E6C] dark:text-[#A6B2AF] transition-colors flex items-center gap-1.5 cursor-pointer"
+            title={isRtl ? 'فتح نافذة مستقلة لطالب آخر' : 'Open isolated window for another reciter'}
           >
-            {isRtl ? 'ربط الحساب الآن' : 'Link Google / Apple'}
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>{isRtl ? 'نافذة طالب جديد' : 'New Reciter Window'}</span>
           </button>
-        )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

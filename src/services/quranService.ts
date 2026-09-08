@@ -2,12 +2,15 @@ import { SurahData, AyahData, WordToken } from '../types';
 import { ALL_114_SURAHS_METADATA, SurahMeta } from '../data/allSurahsMetadata';
 import { PRE_EMBEDDED_SURAHS } from '../data/embeddedSurahs';
 import { RECITERS_LIST } from '../data/quranData';
+import { tajweedAnalyzer } from './tajweedAnalyzer';
 
 // In-memory cache for fast switching
 const surahCache = new Map<number, SurahData>();
+const pageCache = new Map<number, SurahData>();
 
 // LocalStorage cache key prefix
 const STORAGE_PREFIX = 'tadreeb_surah_v1_';
+const PAGE_STORAGE_PREFIX = 'tadreeb_page_v1_';
 
 export class QuranService {
   /**
@@ -170,18 +173,20 @@ export class QuranService {
     return rawWords.map((word, idx) => {
       // Basic transliteration approximation
       const translit = this.approximateTransliteration(word);
+      const nextWord = rawWords[idx + 1];
 
-      // Check if word has Tajweed characteristics (e.g. Shaddah, Madd, Sukoon)
-      const hasMadd = word.includes('آ') || word.includes('~') || word.includes('ٰ') || word.includes('ٓ');
-      const hasQalqalah = /[قطبدج]ْ/.test(word);
+      // Run deep Tajweed rules analyzer
+      const detectedTajweedRules = tajweedAnalyzer.analyzeWord(word, nextWord);
+      const primaryRule = detectedTajweedRules[0];
 
       return {
         id: `${surahNum}-${ayahNum}-${idx + 1}`,
         arabic: word,
         transliteration: translit,
         meaning: `Word ${idx + 1}`,
-        hasTajweedRule: hasMadd || hasQalqalah,
-        tajweedRuleName: hasMadd ? 'Madd' : hasQalqalah ? 'Qalqalah' : undefined
+        hasTajweedRule: detectedTajweedRules.length > 0,
+        tajweedRuleName: primaryRule ? primaryRule.ruleNameEnglish : undefined,
+        tajweedRules: detectedTajweedRules as any
       };
     });
   }
@@ -261,6 +266,117 @@ export class QuranService {
     const subfolder = reciter.subfolder || 'Alafasy_128kbps';
 
     return `https://everyayah.com/data/${subfolder}/${surahPad}${ayahPad}.mp3`;
+  }
+
+  /**
+   * Loads all Ayahs on a specific Quran page (1 - 604) of the Madani Mushaf
+   */
+  async getPage(pageNumber: number): Promise<SurahData> {
+    const safePage = Math.max(1, Math.min(604, pageNumber));
+
+    // 1. Check in-memory cache
+    if (pageCache.has(safePage)) {
+      return pageCache.get(safePage)!;
+    }
+
+    // 2. Check localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(`${PAGE_STORAGE_PREFIX}${safePage}`);
+        if (cached) {
+          const parsed = JSON.parse(cached) as SurahData;
+          if (parsed && parsed.ayahs && parsed.ayahs.length > 0) {
+            pageCache.set(safePage, parsed);
+            return parsed;
+          }
+        }
+      } catch (e) {
+        // Continue
+      }
+    }
+
+    // 3. Find primary Surah on this page from metadata
+    let primarySurah = ALL_114_SURAHS_METADATA.find(m => m.pageNumber === safePage);
+    if (!primarySurah) {
+      // Find the surah that begins closest before or at this page
+      const priorSurahs = ALL_114_SURAHS_METADATA.filter(m => m.pageNumber <= safePage);
+      primarySurah = priorSurahs[priorSurahs.length - 1] || ALL_114_SURAHS_METADATA[0];
+    }
+
+    // 4. Fetch dynamic Page edition from Al-Quran Cloud API
+    try {
+      const response = await fetch(
+        `https://api.alquran.cloud/v1/page/${safePage}/editions/quran-uthmani,en.sahih`
+      );
+
+      if (response.ok) {
+        const json = await response.json();
+        if (json.code === 200 && Array.isArray(json.data) && json.data.length >= 2) {
+          const arabicEdition = json.data[0];
+          const translationEdition = json.data[1];
+
+          const ayahs: AyahData[] = arabicEdition.ayahs.map((ayahItem: any, index: number) => {
+            const translationText = translationEdition.ayahs[index]?.text || '';
+            const arabicText = ayahItem.text;
+            const surahNum = ayahItem.surah?.number || primarySurah?.number || 1;
+            const ayahNumberInSurah = ayahItem.numberInSurah;
+            const overallAyahNumber = ayahItem.number;
+
+            const audioUrl = this.getAyahAudioUrl(surahNum, ayahNumberInSurah, 'alafasy');
+            const words = this.generateWordTokens(arabicText, surahNum, ayahNumberInSurah);
+
+            return {
+              number: overallAyahNumber,
+              numberInSurah: ayahNumberInSurah,
+              arabic: arabicText,
+              translation: translationText,
+              audioUrl,
+              words
+            };
+          });
+
+          const pageData: SurahData = {
+            number: primarySurah.number,
+            nameArabic: `صفحة ${safePage} • ${primarySurah.nameArabic}`,
+            nameEnglish: `Page ${safePage} • ${primarySurah.nameEnglish}`,
+            nameTranslation: `Quran Page ${safePage} (${primarySurah.nameTranslation})`,
+            revelationType: primarySurah.revelationType,
+            numberOfAyahs: ayahs.length,
+            juzNumber: primarySurah.juzNumber,
+            pageNumber: safePage,
+            memorizationProgress: 0,
+            isDownloaded: true,
+            downloadSizeMb: 1.2,
+            ayahs
+          };
+
+          pageCache.set(safePage, pageData);
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(`${PAGE_STORAGE_PREFIX}${safePage}`, JSON.stringify(pageData));
+            } catch (e) {
+              // Storage quota
+            }
+          }
+
+          return pageData;
+        }
+      }
+    } catch (err) {
+      console.warn(`Online fetch for page ${safePage} failed, synthesizing from nearest surah:`, err);
+    }
+
+    // 5. Offline Fallback: Load the primary Surah
+    const fullSurah = await this.getSurah(primarySurah.number);
+    const fallbackPageData: SurahData = {
+      ...fullSurah,
+      nameArabic: `صفحة ${safePage} • ${fullSurah.nameArabic}`,
+      nameEnglish: `Page ${safePage} • ${fullSurah.nameEnglish}`,
+      pageNumber: safePage
+    };
+
+    pageCache.set(safePage, fallbackPageData);
+    return fallbackPageData;
   }
 
   /**

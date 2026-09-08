@@ -80,7 +80,7 @@ export interface TajweedMistake {
   wordArabic: string;
   expectedRecitation: string;
   userRecitation: string;
-  mistakeType: 'wrong_harakah' | 'mispronounced_letter' | 'skipped_word' | 'repeated_word' | 'tajweed_slip';
+  mistakeType: 'wrong_harakah' | 'mispronounced_letter' | 'skipped_word' | 'repeated_word' | 'wrong_word' | 'tajweed_slip';
   tajweedRule?: 'Ghunnah' | 'Qalqalah' | 'Ikhfa' | 'Idgham' | 'Madd' | 'Iqlab';
   explanation: string;
   timestamp: string;
@@ -157,6 +157,35 @@ export interface VoiceCompareReport {
     badgeTitle: string;
     pointsEarned: number;
   };
+  pitchContour?: {
+    timeMs: number;
+    userPitchHz: number;
+    scholarPitchHz: number;
+    diffHz: number;
+  }[];
+  jitterPercentage?: number;
+  shimmerPercentage?: number;
+  harmonicToNoiseDb?: number;
+  makhrajPrecision?: {
+    area: string;
+    areaArabic: string;
+    score: number;
+    status: 'optimal' | 'slight_deviation' | 'needs_adjustment';
+    note: string;
+    noteArabic: string;
+  }[];
+  dynamicRangeDb?: {
+    userMin: number;
+    userMax: number;
+    scholarMin: number;
+    scholarMax: number;
+  };
+  historicalComparison?: {
+    previousScore: number;
+    deltaScore: number;
+    improvementSummary: string;
+    improvementSummaryArabic: string;
+  };
 }
 
 export interface WordToken {
@@ -199,6 +228,9 @@ export interface AudioSettings {
   guidanceVoiceGender: 'female' | 'male';
   guidanceVoiceTone: 'warm' | 'instructional' | 'reflective';
   guidanceVoiceSpeed: number; // 0.75 to 1.25
+  guidanceVoiceLanguage?: 'ar' | 'en'; // Spoken coach & prompt language ('ar' for Arabic speaker, 'en' for English speaker)
+  speakerLanguage?: 'ar' | 'en'; // Selected speaker language for recitation prompts
+  beginRecitationPromptEnabled?: boolean; // Whether the speaker announces "Begin recitation" / "ابدأ التلاوة" when mic activates
   tajweedStrictness: 'lenient' | 'standard' | 'strict';
   correctionToneVolume: number; // 0 - 1
   reciterAudioVolume: number; // 0 - 1
@@ -216,4 +248,20 @@ export interface GoalSettings {
   preferredPracticeTime: 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha' | 'night';
   reminderEnabled: boolean;
   primaryPace: 'steady' | 'accelerated' | 'intensive';
+}
+
+export interface RecitationHangState {
+  active: boolean;
+  reason: 'mistake' | 'forgotten_ayah' | 'hesitation';
+  ayahNumber: number;
+  wordIndex: number;
+  wordArabic: string;
+  wordTransliteration: string;
+  letterHint?: string;
+  letterName?: string;
+  highlightLetter?: string;
+  explanation: string;
+  isRepeatingAudio: boolean;
+  repeatCount: number;
+  mistakeRecord?: TajweedMistake | null;
 }

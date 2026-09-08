@@ -1,0 +1,243 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account and Quran memorization progress profile",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique Firebase Authentication UID",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of student or reciter",
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the student",
+          "maxLength": 120
+        },
+        "isGuest": {
+          "type": "boolean",
+          "description": "Whether user is exploring in local guest mode"
+        },
+        "totalMemorizedAyahs": {
+          "type": "number",
+          "description": "Count of completely memorized ayahs"
+        },
+        "currentStreak": {
+          "type": "number",
+          "description": "Consecutive days of active recitation practice"
+        },
+        "dailyGoalMinutes": {
+          "type": "number",
+          "description": "Target recitation practice minutes per day"
+        },
+        "level": {
+          "type": "string",
+          "description": "Self-assessed tajweed mastery level",
+          "enum": ["beginner", "intermediate", "advanced", "hafiz"]
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of profile update",
+          "maxLength": 64
+        }
+      },
+      "required": ["userId", "name", "totalMemorizedAyahs", "currentStreak", "dailyGoalMinutes", "level"]
+    },
+    "TajweedMistake": {
+      "title": "TajweedMistake",
+      "description": "Logged mistake detected during recitation requiring targeted review",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique mistake identifier",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner student UID",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "surahNumber": {
+          "type": "number",
+          "description": "Surah index (1 to 114)"
+        },
+        "surahName": {
+          "type": "string",
+          "description": "Transliterated name of Surah",
+          "maxLength": 60
+        },
+        "ayahNumber": {
+          "type": "number",
+          "description": "Ayah verse number"
+        },
+        "wordArabic": {
+          "type": "string",
+          "description": "Arabic word where mistake occurred",
+          "maxLength": 60
+        },
+        "mistakeType": {
+          "type": "string",
+          "description": "Category of recitation error",
+          "maxLength": 40
+        },
+        "tajweedRule": {
+          "type": "string",
+          "description": "Governing Tajweed rule",
+          "maxLength": 60
+        },
+        "expectedPronunciation": {
+          "type": "string",
+          "description": "Guidance on correct vocalization",
+          "maxLength": 200
+        },
+        "detectedPronunciation": {
+          "type": "string",
+          "description": "Acoustically detected student pronunciation",
+          "maxLength": 200
+        },
+        "severity": {
+          "type": "string",
+          "description": "Seriousness level of the recitation flaw",
+          "enum": ["jaliy", "khafiy"]
+        },
+        "mastered": {
+          "type": "boolean",
+          "description": "Whether mistake has been successfully rectified"
+        },
+        "recordedAudioUrl": {
+          "type": "string",
+          "description": "Data URI or audio clip reference of student attempt",
+          "maxLength": 5000
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "ISO timestamp of recitation incident",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "userId", "surahNumber", "ayahNumber", "wordArabic", "mistakeType", "tajweedRule", "severity", "mastered"]
+    },
+    "RecitationSession": {
+      "title": "RecitationSession",
+      "description": "Completed or active Quran recitation session record",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique session ID",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner student UID",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "surahNumber": {
+          "type": "number",
+          "description": "Surah index"
+        },
+        "surahName": {
+          "type": "string",
+          "description": "Surah name",
+          "maxLength": 60
+        },
+        "ayahsRecited": {
+          "type": "number",
+          "description": "Total verses covered in this session"
+        },
+        "accuracyScore": {
+          "type": "number",
+          "description": "Overall percentage accuracy of recitation (0-100)"
+        },
+        "durationSeconds": {
+          "type": "number",
+          "description": "Practice time in seconds"
+        },
+        "mistakesCount": {
+          "type": "number",
+          "description": "Number of slips recorded in this session"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO creation timestamp",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "userId", "surahNumber", "ayahsRecited", "accuracyScore", "durationSeconds", "mistakesCount", "createdAt"]
+    },
+    "VoiceCompareReport": {
+      "title": "VoiceCompareReport",
+      "description": "Acoustic formant and spectrographic comparison report",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique report ID",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner student UID",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "mistakeId": {
+          "type": "string",
+          "description": "Associated mistake identifier",
+          "maxLength": 128
+        },
+        "overallMatchPercentage": {
+          "type": "number",
+          "description": "Acoustic match percentage (0-100)"
+        },
+        "scholarName": {
+          "type": "string",
+          "description": "Reciter against whom voice was compared",
+          "maxLength": 80
+        },
+        "wordArabic": {
+          "type": "string",
+          "description": "The evaluated word",
+          "maxLength": 60
+        },
+        "generatedAt": {
+          "type": "string",
+          "description": "ISO timestamp",
+          "maxLength": 64
+        }
+      },
+      "required": ["id", "userId", "mistakeId", "overallMatchPercentage", "scholarName", "wordArabic", "generatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user account profile and recitation mastery stats"
+    },
+    "/users/{userId}/mistakes/{mistakeId}": {
+      "schema": { "$ref": "#/entities/TajweedMistake" },
+      "description": "User-isolated queue of Tajweed slips and audio attempts"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/RecitationSession" },
+      "description": "User-isolated recitation history and duration logs"
+    },
+    "/users/{userId}/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/VoiceCompareReport" },
+      "description": "User-isolated voice compare and formant analysis reports"
+    }
+  }
+}

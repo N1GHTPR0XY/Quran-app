@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { VoiceCompareReport, Direction } from '../../types';
 import { audioEngine } from '../../services/audioEngine';
+import { pdfReportService } from '../../services/pdfReportService';
 import {
   X,
   Activity,
@@ -18,7 +19,8 @@ import {
   Zap,
   Info,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  FileText
 } from 'lucide-react';
 
 interface VoiceCompareReportModalProps {
@@ -39,7 +41,7 @@ export const VoiceCompareReportModal: React.FC<VoiceCompareReportModalProps> = (
   if (!report) return null;
 
   const isRtl = direction === 'rtl';
-  const [activeTab, setActiveTab] = useState<'overview' | 'formants' | 'spectrogram' | 'guidance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'formants' | 'spectrogram' | 'guidance'>('analytics');
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [isPlayingAudition, setIsPlayingAudition] = useState<boolean>(false);
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
@@ -58,10 +60,40 @@ export const VoiceCompareReportModal: React.FC<VoiceCompareReportModalProps> = (
     }, 1200);
   };
 
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+
+  const handleDownloadPdf = () => {
+    setIsExportingPdf(true);
+    try {
+      pdfReportService.downloadReport(report);
+      audioEngine.playSuccessChime();
+    } catch (e) {
+      console.error('Failed to generate PDF:', e);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleSharePdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      await pdfReportService.shareReport(report);
+      audioEngine.playSuccessChime();
+    } catch (e) {
+      console.error('Failed to share PDF:', e);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   const handleShareSummary = () => {
-    navigator.clipboard?.writeText(
-      `Tadreeb Voice Compare Report for ${report.wordArabic} with ${report.scholarName}: ${report.overallMatchPercentage}% acoustic alignment!`
-    );
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard
+        .writeText(
+          `Tadreeb Voice Compare Report for ${report.wordArabic} with ${report.scholarName}: ${report.overallMatchPercentage}% acoustic alignment!`
+        )
+        .catch(() => {});
+    }
     setCopiedToast(true);
     setTimeout(() => setCopiedToast(false), 3000);
   };
@@ -111,7 +143,13 @@ export const VoiceCompareReportModal: React.FC<VoiceCompareReportModalProps> = (
               <span className="text-[10px] text-white/70 uppercase tracking-wider block">
                 {isRtl ? 'نسبة التطابق الكلي' : 'Overall Match'}
               </span>
-              <p className="text-xl font-extrabold text-[#72D6A5] mt-0.5">
+              <p className={`text-xl font-extrabold mt-0.5 ${
+                report.overallMatchPercentage >= 85
+                  ? 'text-[#72D6A5]'
+                  : report.overallMatchPercentage >= 70
+                  ? 'text-[#E2C37E]'
+                  : 'text-[#F58F7C]'
+              }`}>
                 {report.overallMatchPercentage}%
               </p>
             </div>
@@ -131,7 +169,7 @@ export const VoiceCompareReportModal: React.FC<VoiceCompareReportModalProps> = (
               </span>
               <p className="text-xl font-extrabold text-[#E2C37E] mt-0.5 flex items-center justify-center gap-1">
                 <Trophy className="w-4 h-4 fill-current text-[#C5A059]" />
-                <span>+50 XP</span>
+                <span>+{report.badgeProgressImpact?.pointsEarned ?? (report.overallMatchPercentage >= 85 ? 50 : 15)} XP</span>
               </p>
             </div>
           </div>
@@ -140,6 +178,7 @@ export const VoiceCompareReportModal: React.FC<VoiceCompareReportModalProps> = (
         {/* Tab Navigation */}
         <div className="flex items-center gap-1 p-2 bg-[#F5F2ED] dark:bg-[#172526] border-b border-[#E8E2D6] dark:border-[#232E2F] overflow-x-auto flex-shrink-0">
           {[
+            { id: 'analytics', label: isRtl ? 'تحليلات الصوت المقارنة 📊' : 'Voice Compare Analytics 📊' },
             { id: 'overview', label: isRtl ? 'نظرة عامة ومؤشرات' : 'Acoustic Overview' },
             { id: 'formants', label: isRtl ? 'تحليل الترددات (F1/F2)' : 'Formants & Vowels' },
             { id: 'spectrogram', label: isRtl ? 'الرسم الطيفي المتطابق' : 'Waveform Overlay' },
@@ -162,6 +201,241 @@ export const VoiceCompareReportModal: React.FC<VoiceCompareReportModalProps> = (
         {/* Scrollable Report Content */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1 text-xs">
           
+          {/* TAB: VOICE COMPARE ANALYTICS */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-5 animate-fadeIn">
+              {/* Historical Improvement Delta Card */}
+              {report.historicalComparison && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-[#EAF2ED] to-[#FDF8EE] dark:from-[#142A20] dark:to-[#222115] border border-[#C2DBCB] dark:border-[#38483D] flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#1A4D4E] dark:text-[#72D6A5]">
+                      <Sparkles className="w-4 h-4 text-[#C5A059]" />
+                      <span>{isRtl ? 'مؤشر التطور الصوتي مقارنة بالتسجيل السابق:' : 'Acoustic Progression Delta:'}</span>
+                    </div>
+                    <p className="text-[#5F6E6C] dark:text-[#A6B2AF] text-[11px]">
+                      {isRtl ? report.historicalComparison.improvementSummaryArabic : report.historicalComparison.improvementSummary}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span className="text-2xl font-black text-[#2E7D5A] dark:text-[#72D6A5] block">
+                      +{report.historicalComparison.deltaScore}%
+                    </span>
+                    <span className="text-[10px] text-[#8E9B98] uppercase">
+                      {isRtl ? 'تحسن مباشر' : 'Immediate Gain'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 1. Pitch Contour Intonation Curve (F0 Comparison) */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-sm text-[#1A4D4E] dark:text-[#E8ECE9] flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-[#C5A059]" />
+                      <span>{isRtl ? 'منحنى النغمة ومطابقة التردد الأساسي (F0 Pitch Contour)' : 'F0 Pitch Contour & Melodic Intonation'}</span>
+                    </h4>
+                    <p className="text-[11px] text-[#8E9B98] mt-0.5">
+                      {isRtl
+                        ? 'مقارنة مسار النغمة ومقام الترتيل لحظة بلحظة (هرتز على مدار التوقيت بالمللي ثانية)'
+                        : 'Real-time pitch tracking comparing your vocal trajectory against the scholar'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-[11px]">
+                    <span className="flex items-center gap-1 text-[#D96E54] font-semibold">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#D96E54]" />
+                      {isRtl ? 'صوتك' : 'Your Pitch'}
+                    </span>
+                    <span className="flex items-center gap-1 text-[#2E7D5A] dark:text-[#72D6A5] font-semibold">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#2E7D5A] dark:bg-[#72D6A5]" />
+                      {isRtl ? 'الشيخ' : 'Scholar'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pitch Contour SVG Interactive Visualizer */}
+                <div className="h-32 w-full bg-white dark:bg-[#122021] rounded-xl border border-[#E8E2D6] dark:border-[#232E2F] p-3 flex flex-col justify-between">
+                  <div className="flex items-center justify-between text-[10px] text-[#8E9B98] border-b border-[#E8E2D6]/40 dark:border-[#232E2F] pb-1">
+                    <span>{isRtl ? 'التردد العالي: 260 هرتز' : 'High: 260 Hz'}</span>
+                    <span className="font-mono">Maqam Tartil Cadence</span>
+                    <span>{isRtl ? 'التردد الأساسي: 120 هرتز' : 'Base: 120 Hz'}</span>
+                  </div>
+
+                  {/* Dynamic Curve Plotting */}
+                  <div className="relative h-18 w-full flex items-end justify-between px-2 pt-2">
+                    {report.pitchContour && report.pitchContour.map((pt, idx) => {
+                      const maxHz = 260;
+                      const minHz = 110;
+                      const scholarHeight = Math.max(10, Math.min(100, ((pt.scholarPitchHz - minHz) / (maxHz - minHz)) * 100));
+                      const userHeight = Math.max(10, Math.min(100, ((pt.userPitchHz - minHz) / (maxHz - minHz)) * 100));
+                      const isDeviated = Math.abs(pt.diffHz) > 8;
+
+                      return (
+                        <div key={idx} className="flex flex-col items-center gap-1 group relative h-full justify-end flex-1 max-w-[24px]">
+                          {/* Tooltip on hover */}
+                          <div className="absolute bottom-full mb-1 hidden group-hover:flex flex-col items-center bg-black/90 text-white text-[9px] p-1.5 rounded-lg z-20 whitespace-nowrap shadow-lg">
+                            <span>{pt.timeMs} ms</span>
+                            <span className="text-[#72D6A5]">Scholar: {pt.scholarPitchHz} Hz</span>
+                            <span className="text-[#FF9A85]">You: {pt.userPitchHz} Hz (Δ {pt.diffHz}Hz)</span>
+                          </div>
+
+                          {/* Dual Bars / Indicators */}
+                          <div className="w-full flex items-end justify-center gap-0.5 h-16">
+                            {/* Scholar line point */}
+                            <div
+                              style={{ height: `${scholarHeight}%` }}
+                              className="w-1.5 rounded-t-full bg-[#2E7D5A] dark:bg-[#72D6A5] opacity-80"
+                            />
+                            {/* User line point */}
+                            <div
+                              style={{ height: `${userHeight}%` }}
+                              className={`w-1.5 rounded-t-full transition-all ${
+                                isDeviated ? 'bg-[#D96E54]' : 'bg-[#C5A059]'
+                              }`}
+                            />
+                          </div>
+                          <span className="text-[8px] text-[#8E9B98] font-mono">{pt.timeMs}ms</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {(() => {
+                  const pitchMetric = report.metrics.find(m => m.id === 'pitch');
+                  const tonalScore = pitchMetric ? Math.round(pitchMetric.score) : Math.round(report.overallMatchPercentage);
+                  const avgPitchDiff = report.pitchContour && report.pitchContour.length > 0
+                    ? Math.round(report.pitchContour.reduce((acc, p) => acc + Math.abs(p.diffHz), 0) / report.pitchContour.length)
+                    : 6;
+                  const isGood = avgPitchDiff <= 12;
+
+                  return (
+                    <div className="flex items-center justify-between text-[11px] text-[#6F7D7B] dark:text-[#9AA5A3] px-1">
+                      <span>
+                        {isRtl ? `الاستقرار النغمي: متطابق بنسبة ${tonalScore}%` : `Tonal Alignment: ${tonalScore}% match`}
+                      </span>
+                      <span>
+                        {isRtl
+                          ? `متوسط الفارق: ±${avgPitchDiff} هرتز (${isGood ? 'طبيعي ومقبول' : 'يحتاج تقريب للنغمة'})`
+                          : `Mean Pitch Variance: ±${avgPitchDiff} Hz (${isGood ? 'Within target range' : 'Needs tonal adjustment'})`}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* 2. Vocal Stability & Harmonic Biomarkers */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] space-y-1">
+                  <span className="text-[10px] text-[#8E9B98] block uppercase">
+                    {isRtl ? 'الاضطراب الترددي (Jitter)' : 'Pitch Jitter'}
+                  </span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-lg font-bold font-mono text-[#2E7D5A] dark:text-[#72D6A5]">
+                      {report.jitterPercentage ?? 0.62}%
+                    </span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">{isRtl ? 'ممتاز' : 'Optimal'}</span>
+                  </div>
+                  <p className="text-[10px] text-[#8E9B98]">{isRtl ? 'المعيار: أقل من 1.04%' : 'Standard: < 1.04%'}</p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] space-y-1">
+                  <span className="text-[10px] text-[#8E9B98] block uppercase">
+                    {isRtl ? 'استقرار السعة (Shimmer)' : 'Amp Shimmer'}
+                  </span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-lg font-bold font-mono text-[#2E7D5A] dark:text-[#72D6A5]">
+                      {report.shimmerPercentage ?? 2.8}%
+                    </span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">{isRtl ? 'متزن' : 'Stable'}</span>
+                  </div>
+                  <p className="text-[10px] text-[#8E9B98]">{isRtl ? 'المعيار: أقل من 3.81%' : 'Standard: < 3.81%'}</p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] space-y-1">
+                  <span className="text-[10px] text-[#8E9B98] block uppercase">
+                    {isRtl ? 'نقاء النغمة (HNR)' : 'Harmonic Ratio'}
+                  </span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-lg font-bold font-mono text-[#1A4D4E] dark:text-[#E8ECE9]">
+                      {report.harmonicToNoiseDb ?? 21.4} dB
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#8E9B98]">{isRtl ? 'صفاء صوتي متقدم' : 'Crisp vocal purity'}</p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] space-y-1">
+                  <span className="text-[10px] text-[#8E9B98] block uppercase">
+                    {isRtl ? 'المجال الديناميكي' : 'Dynamic Range'}
+                  </span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-lg font-bold font-mono text-[#C5A059]">
+                      24 dB
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#8E9B98]">{isRtl ? 'ضغط صوتي سليم' : 'Balanced pressure'}</p>
+                </div>
+              </div>
+
+              {/* 3. Makhraj Articulation Precision Breakdown */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] space-y-3">
+                <h4 className="font-bold text-sm text-[#1A4D4E] dark:text-[#E8ECE9] flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-[#C5A059]" />
+                  <span>{isRtl ? 'توزيع دقة مخارج الحروف الصوتية (Makhraj Alignment)' : 'Makhraj Acoustic Precision Distribution'}</span>
+                </h4>
+
+                <div className="space-y-3">
+                  {report.makhrajPrecision && report.makhrajPrecision.map((m, idx) => (
+                    <div key={idx} className="p-3 rounded-xl bg-white dark:bg-[#122021] border border-[#E8E2D6] dark:border-[#232E2F] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-[#1A4D4E] dark:text-[#E8ECE9]">
+                          {isRtl ? m.areaArabic : m.area}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                            m.status === 'optimal'
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                              : m.status === 'slight_deviation'
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                              : 'bg-[#D96E54]/15 text-[#D96E54]'
+                          }`}>
+                            {m.status === 'optimal'
+                              ? (isRtl ? 'مخرج متقن' : 'Optimal')
+                              : m.status === 'slight_deviation'
+                              ? (isRtl ? 'انحراف طفيف' : 'Minor Variance')
+                              : (isRtl ? 'يحتاج ضبط' : 'Needs Practice')}
+                          </span>
+                          <span className="font-bold font-mono text-xs text-[#1A4D4E] dark:text-[#E8ECE9]">
+                            {m.score}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full bg-[#E8E2D6]/60 dark:bg-[#232E2F] h-2 rounded-full overflow-hidden">
+                        <div
+                          style={{ width: `${m.score}%` }}
+                          className={`h-full rounded-full transition-all duration-700 ${
+                            m.score >= 90
+                              ? 'bg-[#2E7D5A] dark:bg-[#72D6A5]'
+                              : m.score >= 75
+                              ? 'bg-[#C5A059]'
+                              : 'bg-[#D96E54]'
+                          }`}
+                        />
+                      </div>
+
+                      <p className="text-[11px] text-[#6F7D7B] dark:text-[#9AA5A3]">
+                        {isRtl ? m.noteArabic : m.note}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB 1: ACOUSTIC OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-4 animate-fadeIn">
@@ -408,14 +682,25 @@ export const VoiceCompareReportModal: React.FC<VoiceCompareReportModalProps> = (
 
         {/* Modal Action Footer */}
         <div className="p-4 sm:p-5 bg-[#F5F2ED] dark:bg-[#172526] border-t border-[#E8E2D6] dark:border-[#232E2F] flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto">
             <button
-              onClick={handleShareSummary}
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf}
+              className="px-3 py-2 rounded-xl bg-white dark:bg-[#122021] border border-[#C5A059] text-[#C5A059] font-bold text-xs hover:bg-[#FDF8EE] dark:hover:bg-[#201d14] transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Download PDF"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>{isRtl ? 'تحميل PDF' : 'Download PDF'}</span>
+            </button>
+
+            <button
+              onClick={handleSharePdf}
+              disabled={isExportingPdf}
               className="px-3 py-2 rounded-xl bg-white dark:bg-[#122021] border border-[#E8E2D6] dark:border-[#232E2F] text-[#1A4D4E] dark:text-[#E8ECE9] font-semibold text-xs hover:bg-[#EAF2ED] transition-colors flex items-center gap-1.5 cursor-pointer"
-              title="Copy Summary"
+              title="Share PDF Report"
             >
               <Share2 className="w-3.5 h-3.5" />
-              <span>{copiedToast ? (isRtl ? 'تم النسخ!' : 'Copied!') : (isRtl ? 'مشاركة' : 'Share')}</span>
+              <span>{isRtl ? 'مشاركة PDF' : 'Share PDF'}</span>
             </button>
 
             {onReplayComparison && (

@@ -155,6 +155,117 @@ export const AudioSettingsScreen: React.FC<AudioSettingsScreenProps> = ({
             <span>{isRtl ? 'صوت ونبرة المرشد' : 'Interface Guidance & Coaching Voice'}</span>
           </h3>
 
+          {/* Guidance & Recitation Speaker Language (Arabic vs English) */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-[#C5A059]">
+                {isRtl ? 'لغة المتحدث الصوتي والتوجيه' : 'Recitation Speaker & Coach Language'}
+              </label>
+              <span className="text-[10px] text-[#1A4D4E] dark:text-[#72D6A5] bg-[#EAF2ED] dark:bg-[#142A20] px-2 py-0.5 rounded-full font-semibold">
+                {settings.speakerLanguage === 'ar' || (!settings.speakerLanguage && isRtl) ? 'العربية' : 'English'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-2">
+              {/* Arabic Speaker Option */}
+              <div
+                onClick={() => onUpdateSettings({ ...settings, speakerLanguage: 'ar', guidanceVoiceLanguage: 'ar' })}
+                className={`p-3.5 rounded-2xl border text-xs transition-all cursor-pointer space-y-1.5 ${
+                  (settings.speakerLanguage === 'ar' || (!settings.speakerLanguage && isRtl))
+                    ? 'border-[#1A4D4E] dark:border-[#C5A059] bg-[#EAF2ED] dark:bg-[#142A20] shadow-sm'
+                    : 'border-[#E8E2D6] dark:border-[#232E2F] bg-[#FDFBF7] dark:bg-[#172526] hover:border-[#C5A059]'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-[#1A4D4E] dark:text-[#E8ECE9] flex items-center gap-1.5">
+                    <span>🇸🇦</span>
+                    <span>{isRtl ? 'متحدث بالعربية' : 'Arabic Speaker'}</span>
+                  </span>
+                  {(settings.speakerLanguage === 'ar' || (!settings.speakerLanguage && isRtl)) && (
+                    <span className="w-4 h-4 rounded-full bg-[#1A4D4E] dark:bg-[#C5A059] text-white dark:text-[#0E1A1A] flex items-center justify-center text-[10px]">
+                      <Check className="w-2.5 h-2.5" />
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#5F6E6C] dark:text-[#A6B2AF]">
+                  {isRtl ? 'نداء البدء: "ابدأ التلاوة"' : 'Prompt: "ابدأ التلاوة" (Arabic)'}
+                </p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    audioEngine.speakBeginRecitationPrompt('ar', { ...settings, speakerLanguage: 'ar', guidanceVoiceLanguage: 'ar' });
+                  }}
+                  className="w-full py-1.5 px-2 rounded-lg bg-white dark:bg-[#1A2627] border border-[#C2DBCB] dark:border-[#232E2F] text-[10px] font-semibold text-[#1A4D4E] dark:text-[#C5A059] hover:bg-[#EAE5DC] dark:hover:bg-[#203031] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="w-2.5 h-2.5 fill-current" />
+                  <span>{isRtl ? 'استمع لـ: "ابدأ التلاوة"' : 'Listen: "ابدأ التلاوة"'}</span>
+                </button>
+              </div>
+
+              {/* English Speaker Option */}
+              <div
+                onClick={() => onUpdateSettings({ ...settings, speakerLanguage: 'en', guidanceVoiceLanguage: 'en' })}
+                className={`p-3.5 rounded-2xl border text-xs transition-all cursor-pointer space-y-1.5 ${
+                  (settings.speakerLanguage === 'en' || (!settings.speakerLanguage && !isRtl))
+                    ? 'border-[#1A4D4E] dark:border-[#C5A059] bg-[#EAF2ED] dark:bg-[#142A20] shadow-sm'
+                    : 'border-[#E8E2D6] dark:border-[#232E2F] bg-[#FDFBF7] dark:bg-[#172526] hover:border-[#C5A059]'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-[#1A4D4E] dark:text-[#E8ECE9] flex items-center gap-1.5">
+                    <span>🇬🇧</span>
+                    <span>{isRtl ? 'متحدث بالإنجليزية' : 'English Speaker'}</span>
+                  </span>
+                  {(settings.speakerLanguage === 'en' || (!settings.speakerLanguage && !isRtl)) && (
+                    <span className="w-4 h-4 rounded-full bg-[#1A4D4E] dark:bg-[#C5A059] text-white dark:text-[#0E1A1A] flex items-center justify-center text-[10px]">
+                      <Check className="w-2.5 h-2.5" />
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#5F6E6C] dark:text-[#A6B2AF]">
+                  {isRtl ? 'نداء البدء: "Begin recitation"' : 'Prompt: "Begin recitation"'}
+                </p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    audioEngine.speakBeginRecitationPrompt('en', { ...settings, speakerLanguage: 'en', guidanceVoiceLanguage: 'en' });
+                  }}
+                  className="w-full py-1.5 px-2 rounded-lg bg-white dark:bg-[#1A2627] border border-[#C2DBCB] dark:border-[#232E2F] text-[10px] font-semibold text-[#1A4D4E] dark:text-[#C5A059] hover:bg-[#EAE5DC] dark:hover:bg-[#203031] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="w-2.5 h-2.5 fill-current" />
+                  <span>{isRtl ? 'استمع لـ: "Begin recitation"' : 'Listen: "Begin recitation"'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Spoken Announcement on Recitation Start Toggle */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] mt-2">
+              <div>
+                <span className="font-semibold text-xs text-[#1A4D4E] dark:text-[#E8ECE9] block">
+                  {isRtl ? 'نداء المتحدث عند بدء التسميع' : 'Announce on Recitation Start'}
+                </span>
+                <span className="text-[10px] text-[#8E9B98]">
+                  {isRtl ? 'ينطق "ابدأ التلاوة" أو "Begin recitation" عند تشغيل الميكروفون' : 'Spoken audio alert ("Begin recitation" or "ابدأ التلاوة") when mic triggers'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onUpdateSettings({ ...settings, beginRecitationPromptEnabled: settings.beginRecitationPromptEnabled === false ? true : false })}
+                className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${
+                  settings.beginRecitationPromptEnabled !== false ? 'bg-[#1A4D4E] dark:bg-[#C5A059]' : 'bg-[#D1D5DB] dark:bg-[#374151]'
+                }`}
+              >
+                <span
+                  className={`block w-4 h-4 rounded-full bg-white transition-transform ${
+                    settings.beginRecitationPromptEnabled !== false ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
           {/* Voice Gender Selection */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#C5A059] mb-2">

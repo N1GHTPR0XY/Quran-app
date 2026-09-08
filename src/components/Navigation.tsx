@@ -87,15 +87,37 @@ export const Navigation: React.FC<NavigationProps> = ({
               </div>
             )}
 
-            {/* RTL / LTR Toggle */}
-            <button
-              onClick={onToggleDirection}
-              className="p-2 rounded-xl text-[#5F6E6C] dark:text-[#A6B2AF] hover:bg-[#F5F2ED] dark:hover:bg-[#172526] transition-colors border border-transparent hover:border-[#E8E2D6] dark:hover:border-[#232E2F] cursor-pointer"
-              title={direction === 'rtl' ? 'Switch to LTR (English)' : 'التبديل إلى العربية (RTL)'}
-              aria-label="Toggle language direction"
-            >
-              <Languages className="w-4 h-4" />
-            </button>
+            {/* Language Selector (Arabic / English) */}
+            <div className="flex items-center bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] rounded-xl p-0.5 text-xs font-semibold">
+              <button
+                onClick={() => {
+                  if (direction !== 'rtl') onToggleDirection();
+                }}
+                className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  direction === 'rtl'
+                    ? 'bg-[#1A4D4E] dark:bg-[#C5A059] text-white dark:text-[#0E1A1A] shadow-xs'
+                    : 'text-[#5F6E6C] dark:text-[#A6B2AF] hover:text-[#1A4D4E] dark:hover:text-[#E8ECE9]'
+                }`}
+                title="التبديل إلى العربية"
+                aria-label="Switch to Arabic"
+              >
+                <span>عربي</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (direction !== 'ltr') onToggleDirection();
+                }}
+                className={`px-2 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  direction === 'ltr'
+                    ? 'bg-[#1A4D4E] dark:bg-[#C5A059] text-white dark:text-[#0E1A1A] shadow-xs'
+                    : 'text-[#5F6E6C] dark:text-[#A6B2AF] hover:text-[#1A4D4E] dark:hover:text-[#E8ECE9]'
+                }`}
+                title="Switch to English"
+                aria-label="Switch to English"
+              >
+                <span>EN</span>
+              </button>
+            </div>
 
             {/* Light / Dark Mode Toggle */}
             <button

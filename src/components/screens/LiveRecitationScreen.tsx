@@ -22,17 +22,38 @@ import {
   AlertCircle,
   HelpCircle,
   ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  ChevronLeft,
   BookOpen,
-  Search
+  Bookmark,
+  FileText,
+  Search,
+  Play,
+  Layers,
+  Check,
+  CheckCircle2,
+  Sliders,
+  X,
+  Info,
+  Lightbulb
 } from 'lucide-react';
 import { quranService } from '../../services/quranService';
 import { audioRecordingService } from '../../services/audioRecordingService';
 import { achievementService } from '../../services/achievementService';
+import { tajweedAnalyzer, TajweedRuleOccurrence } from '../../services/tajweedAnalyzer';
+import { QuranNavigationModal } from '../quran/QuranNavigationModal';
+import { LiveTajweedCoach } from '../quran/LiveTajweedCoach';
+import { TajweedRuleInspectorModal } from '../quran/TajweedRuleInspectorModal';
+import { RecitationHangCard } from '../quran/RecitationHangCard';
+import { RecitationHangState } from '../../types';
 
 interface LiveRecitationScreenProps {
   surah?: SurahData;
   audioSettings: AudioSettings;
+  onUpdateAudioSettings?: (settings: AudioSettings) => void;
   direction: Direction;
+  onToggleDirection?: () => void;
   onNavigate: (screen: ScreenId) => void;
   onRecordMistake: (mistake: TajweedMistake) => void;
   onSelectSurah?: (surah: SurahData) => void;
@@ -41,12 +62,32 @@ interface LiveRecitationScreenProps {
 export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
   surah = POPULAR_SURAHS[0], // Al-Fatihah
   audioSettings,
+  onUpdateAudioSettings,
   direction,
+  onToggleDirection,
   onNavigate,
   onRecordMistake,
   onSelectSurah
 }) => {
   const isRtl = direction === 'rtl';
+
+  // Speaker Language (Allows user to select between Arabic speaker "ابدأ التلاوة" and English speaker "Begin recitation")
+  const [speakerLanguage, setSpeakerLanguage] = useState<'ar' | 'en'>(() => {
+    return audioSettings.speakerLanguage || (direction === 'rtl' ? 'ar' : 'en');
+  });
+
+  const [speakerToast, setSpeakerToast] = useState<{ active: boolean; text: string; lang: 'ar' | 'en' }>({
+    active: false,
+    text: '',
+    lang: 'ar'
+  });
+
+  // Keep speakerLanguage synchronized if audioSettings or direction change
+  useEffect(() => {
+    if (audioSettings.speakerLanguage) {
+      setSpeakerLanguage(audioSettings.speakerLanguage);
+    }
+  }, [audioSettings.speakerLanguage]);
 
   // Recitation State
   const [currentAyahIndex, setCurrentAyahIndex] = useState(0);
@@ -55,6 +96,8 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showPeek, setShowPeek] = useState(false);
   const [activeMistake, setActiveMistake] = useState<TajweedMistake | null>(null);
+  const [hangState, setHangState] = useState<RecitationHangState | null>(null);
+  const [showDetailedMistakeModal, setShowDetailedMistakeModal] = useState(false);
   const [completedAyahs, setCompletedAyahs] = useState<number[]>([]);
   const [audioLevel, setAudioLevel] = useState(0.1); // real RMS from mic
   const [liveDecibels, setLiveDecibels] = useState(-60);
@@ -66,39 +109,41 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
 
-  // Quick Surah Switcher Modal
-  const [showSurahPicker, setShowSurahPicker] = useState(false);
-  const [surahPickerSearch, setSurahPickerSearch] = useState('');
-  const [isSwitchingSurah, setIsSwitchingSurah] = useState(false);
+  // Quick Surah / Ayah / Page Navigator Modal
+  const [showNavPicker, setShowNavPicker] = useState(false);
+  const [selectedTajweedInspection, setSelectedTajweedInspection] = useState<TajweedRuleOccurrence | null>(null);
 
   // All 114 Surahs cache
   const allSurahsList = useMemo(() => quranService.getAllSurahsList(), []);
 
-  const filteredPickerSurahs = useMemo(() => {
-    const q = surahPickerSearch.trim().toLowerCase();
-    if (!q) return allSurahsList;
-    return allSurahsList.filter(s =>
-      s.nameEnglish.toLowerCase().includes(q) ||
-      s.nameArabic.includes(q) ||
-      s.nameTranslation.toLowerCase().includes(q) ||
-      s.number.toString() === q
-    );
-  }, [allSurahsList, surahPickerSearch]);
-
-  const handleSelectFromPicker = async (item: SurahData) => {
-    setIsSwitchingSurah(true);
+  const handleSelectSurahNumber = async (num: number) => {
     try {
       if (onSelectSurah) {
-        const full = await quranService.getSurah(item.number);
+        const full = await quranService.getSurah(num);
         onSelectSurah(full);
       }
-      setShowSurahPicker(false);
+      setCurrentAyahIndex(0);
+      setCurrentWordIndex(0);
     } catch (err) {
       console.error('Failed to load surah:', err);
-      if (onSelectSurah) onSelectSurah(item);
-      setShowSurahPicker(false);
-    } finally {
-      setIsSwitchingSurah(false);
+    }
+  };
+
+  const handleSelectAyahIndex = (index: number) => {
+    setCurrentAyahIndex(index);
+    setCurrentWordIndex(0);
+  };
+
+  const handleSelectPageNumber = async (page: number) => {
+    try {
+      if (onSelectSurah) {
+        const pageData = await quranService.getPage(page);
+        onSelectSurah(pageData);
+      }
+      setCurrentAyahIndex(0);
+      setCurrentWordIndex(0);
+    } catch (err) {
+      console.error('Failed to load page:', err);
     }
   };
 
@@ -118,6 +163,17 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
 
   const currentAyah = surah.ayahs[currentAyahIndex] || surah.ayahs[0];
   const words = currentAyah?.words || [];
+
+  // Tajweed rules map for the current Ayah words
+  const ayahTajweedMap = useMemo(() => {
+    if (!words || words.length === 0) return new Map<number, TajweedRuleOccurrence[]>();
+    return tajweedAnalyzer.getRulesForEntireAyah(words);
+  }, [words]);
+
+  // Tajweed rules active on the current recited word
+  const activeWordTajweedRules = useMemo(() => {
+    return ayahTajweedMap.get(currentWordIndex) || [];
+  }, [ayahTajweedMap, currentWordIndex]);
 
   useEffect(() => {
     currentWordIndexRef.current = currentWordIndex;
@@ -188,6 +244,49 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
     return currentWord ? extractKasrahLetters(currentWord.arabic, currentWord.transliteration) : [];
   }, [currentWord]);
 
+  // Handle when someone forgets an ayah or hesitates
+  const handleForgottenAyahPrompt = useCallback((wordIdx?: number) => {
+    const targetIdx = typeof wordIdx === 'number' ? wordIdx : currentWordIndexRef.current;
+    const targetWord = wordsRef.current[targetIdx] || wordsRef.current[0];
+    if (!targetWord) return;
+
+    // Immediately stop mic listening to deliver the repetition prompt cleanly
+    setIsListening(false);
+    setIsRecordingAudio(false);
+    recitationTracker.stop();
+
+    const hangObj: RecitationHangState = {
+      active: true,
+      reason: 'forgotten_ayah',
+      ayahNumber: currentAyah.numberInSurah,
+      wordIndex: targetIdx,
+      wordArabic: targetWord.arabic,
+      wordTransliteration: targetWord.transliteration,
+      letterHint: isRtl ? `بداية الكلمة: «${targetWord.arabic.charAt(0)}»` : `Begins with: "${targetWord.arabic.charAt(0)}"`,
+      highlightLetter: targetWord.arabic.charAt(0),
+      explanation: isRtl
+        ? `تلقين الآية ${currentAyah.numberInSurah}: استمع لنطق «${targetWord.arabic}» ثم كررها وتابع التلاوة.`
+        : `Prompting Ayah ${currentAyah.numberInSurah}: Listen to "${targetWord.transliteration}", repeat it, and continue.`,
+      isRepeatingAudio: true,
+      repeatCount: 1,
+      mistakeRecord: null
+    };
+    setHangState(hangObj);
+
+    // Repeat the forgotten word and letter prompt!
+    audioEngine.repeatWordAndLetterPrompt({
+      wordArabic: targetWord.arabic,
+      letterHint: isRtl ? 'استمع وكرر' : 'Listen and repeat',
+      isMistake: false,
+      language: speakerLanguage,
+      settings: audioSettings,
+      playChimeFirst: true,
+      onComplete: () => {
+        setHangState(prev => (prev ? { ...prev, isRepeatingAudio: false } : null));
+      }
+    });
+  }, [currentAyah, isRtl, speakerLanguage, audioSettings]);
+
   // Handle Harakah Mistake (Kasrah -> Dammah Lahn Jaliyy)
   const handleHarakahMistake = useCallback((harakahDetail: HarakahDetail) => {
     // 1. Immediately STOP recitation & listening
@@ -244,14 +343,105 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
     setActiveMistake(mistakeObj);
     onRecordMistake(mistakeObj);
 
-    // 5. Voice coach verbal guidance
-    audioEngine.speakGuidance(
-      isRtl
-        ? `توقف للتصحيح: نطق الحرف بالضمة بدل الكسرة. المطلوب: ${harakahDetail.expectedWord} بالكسرة.`
-        : `Stop and correct: You pronounced the letter ${harakahDetail.harfNameEnglish} with Dammah instead of Kasrah. Correct: ${harakahDetail.phoneticExpected} with a Kasrah.`,
-      audioSettings
-    );
-  }, [surah, currentAyah, isRtl, audioSettings, onRecordMistake]);
+    // 5. Enter Hang State: Hang on the particular verse and letter!
+    const hangObj: RecitationHangState = {
+      active: true,
+      reason: 'mistake',
+      ayahNumber: currentAyah.numberInSurah,
+      wordIndex: currentWordIndexRef.current,
+      wordArabic: harakahDetail.expectedWord,
+      wordTransliteration: wordsRef.current[currentWordIndexRef.current]?.transliteration || '',
+      letterHint: isRtl
+        ? `حرف ${harakahDetail.harfNameArabic} بالكسرة: ${harakahDetail.expectedArabicLetter}`
+        : `Letter ${harakahDetail.harfNameEnglish} with Kasrah: ${harakahDetail.expectedArabicLetter}`,
+      letterName: harakahDetail.harfNameArabic,
+      highlightLetter: harakahDetail.expectedArabicLetter,
+      explanation: isRtl
+        ? `توقف للتصحيح: نطق الحرف بالضمة (${harakahDetail.actualArabicLetter}) بدل الكسرة (${harakahDetail.expectedArabicLetter}). الصحيح: «${harakahDetail.expectedWord}» بالكسرة.`
+        : `Correction: Pronounced with Dammah (${harakahDetail.actualArabicLetter}) instead of Kasrah (${harakahDetail.expectedArabicLetter}). Correct: "${harakahDetail.expectedWord}".`,
+      isRepeatingAudio: true,
+      repeatCount: 1,
+      mistakeRecord: mistakeObj
+    };
+    setHangState(hangObj);
+
+    // 6. Voice coach immediately repeats the word and letter prompt!
+    audioEngine.repeatWordAndLetterPrompt({
+      wordArabic: harakahDetail.expectedWord,
+      letterHint: isRtl
+        ? `حرف ${harakahDetail.harfNameArabic} بالكسرة: ${harakahDetail.expectedArabicLetter}`
+        : `Letter ${harakahDetail.harfNameEnglish} with Kasrah: ${harakahDetail.expectedArabicLetter}`,
+      isMistake: true,
+      language: speakerLanguage,
+      settings: audioSettings,
+      playChimeFirst: false,
+      onComplete: () => {
+        setHangState(prev => (prev ? { ...prev, isRepeatingAudio: false } : null));
+      }
+    });
+  }, [surah, currentAyah, isRtl, audioSettings, speakerLanguage, onRecordMistake]);
+
+  // Hang Actions: Repeat prompt again, play Master Reciter, continue, retry phrase
+  const handleRepeatHangPrompt = useCallback(() => {
+    if (!hangState) return;
+    setHangState(prev => (prev ? { ...prev, isRepeatingAudio: true, repeatCount: prev.repeatCount + 1 } : null));
+    audioEngine.repeatWordAndLetterPrompt({
+      wordArabic: hangState.wordArabic,
+      letterHint: hangState.letterHint,
+      isMistake: hangState.reason === 'mistake',
+      language: speakerLanguage,
+      settings: audioSettings,
+      playChimeFirst: false,
+      onComplete: () => {
+        setHangState(prev => (prev ? { ...prev, isRepeatingAudio: false } : null));
+      }
+    });
+  }, [hangState, speakerLanguage, audioSettings]);
+
+  const handlePlaySheikhForCurrentAyah = useCallback(() => {
+    const url = quranService.getAyahAudioUrl(surah.number, currentAyah.numberInSurah, audioSettings.reciterId);
+    audioEngine.playReciterAudio(url);
+  }, [surah.number, currentAyah.numberInSurah, audioSettings.reciterId]);
+
+  const handleContinueFromHang = useCallback(() => {
+    audioEngine.stopAll();
+    setHangState(null);
+    setActiveMistake(null);
+    setShowDetailedMistakeModal(false);
+    handleWordRecited();
+    setIsListening(true);
+    recitationTracker.resetActivityTimer();
+  }, [handleWordRecited]);
+
+  const handleRetryPhraseFromHang = useCallback(() => {
+    audioEngine.stopAll();
+    setHangState(null);
+    setActiveMistake(null);
+    setShowDetailedMistakeModal(false);
+    setIsListening(true);
+    recitationTracker.resetActivityTimer();
+  }, []);
+
+  // Synchronized callback refs to guarantee fresh closures without restarting media streams
+  const hangStateRef = useRef(hangState);
+  useEffect(() => {
+    hangStateRef.current = hangState;
+  }, [hangState]);
+
+  const handleWordRecitedRef = useRef(handleWordRecited);
+  useEffect(() => {
+    handleWordRecitedRef.current = handleWordRecited;
+  }, [handleWordRecited]);
+
+  const handleForgottenAyahPromptRef = useRef(handleForgottenAyahPrompt);
+  useEffect(() => {
+    handleForgottenAyahPromptRef.current = handleForgottenAyahPrompt;
+  }, [handleForgottenAyahPrompt]);
+
+  const handleHarakahMistakeRef = useRef(handleHarakahMistake);
+  useEffect(() => {
+    handleHarakahMistakeRef.current = handleHarakahMistake;
+  }, [handleHarakahMistake]);
 
   // Start / Stop Speech & Acoustic Tracker and User Voice Recorder based on listening state
   useEffect(() => {
@@ -261,10 +451,22 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
       recitationTracker.start({
         onWordMatched: (_wordIdx, recognizedText) => {
           setDetectedTranscript(recognizedText);
-          handleWordRecited();
+          if (hangStateRef.current?.active) {
+            // Student spoke the word after hearing repeat; play pleasant success chime!
+            audioEngine.playSuccessChime();
+            setHangState(null);
+            setActiveMistake(null);
+            setShowDetailedMistakeModal(false);
+          }
+          handleWordRecitedRef.current();
+        },
+        onHesitationDetected: (wordIdx) => {
+          if (!hangStateRef.current?.active) {
+            handleForgottenAyahPromptRef.current(wordIdx);
+          }
         },
         onHarakahMistakeDetected: (harakahDetail) => {
-          handleHarakahMistake(harakahDetail);
+          handleHarakahMistakeRef.current(harakahDetail);
         },
         onAudioLevel: (normalizedLevel, decibels) => {
           setAudioLevel(normalizedLevel);
@@ -314,7 +516,7 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
       audioRecordingService.stopRecording();
       setIsRecordingAudio(false);
     };
-  }, [isListening, handleWordRecited, handleHarakahMistake]);
+  }, [isListening]);
 
   // Track recording duration while audio recorder is active
   useEffect(() => {
@@ -398,6 +600,35 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
     };
   }, [isListening, audioLevel]);
 
+  // Handle setting speaker language (Arabic or English)
+  const handleSetSpeakerLang = (lang: 'ar' | 'en') => {
+    setSpeakerLanguage(lang);
+    if (onUpdateAudioSettings) {
+      onUpdateAudioSettings({
+        ...audioSettings,
+        speakerLanguage: lang,
+        guidanceVoiceLanguage: lang
+      });
+    }
+  };
+
+  // Audition / Test the selected speaker immediately
+  const handleTestSpeaker = (lang: 'ar' | 'en' = speakerLanguage) => {
+    audioEngine.speakBeginRecitationPrompt(lang, {
+      ...audioSettings,
+      speakerLanguage: lang,
+      guidanceVoiceLanguage: lang
+    });
+    setSpeakerToast({
+      active: true,
+      text: lang === 'ar' ? 'ابدأ التلاوة' : 'Begin recitation',
+      lang
+    });
+    setTimeout(() => {
+      setSpeakerToast(prev => ({ ...prev, active: false }));
+    }, 2800);
+  };
+
   // Toggle Live Microphone Listening
   const toggleListening = () => {
     if (isListening) {
@@ -406,12 +637,19 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
     } else {
       setMicPermissionError(null);
       setIsListening(true);
-      // Encourage voice coach on first start
-      if (currentWordIndex === 0 && currentAyahIndex === 0) {
-        audioEngine.speakGuidance(
-          "I am listening. Whenever you're ready, begin reciting from memory.",
-          audioSettings
-        );
+
+      // Spoken Begin Recitation Announcement based on selected speaker language:
+      // Arabic speaker: "ابدأ التلاوة" | English speaker: "Begin recitation"
+      if (audioSettings.beginRecitationPromptEnabled !== false) {
+        audioEngine.speakBeginRecitationPrompt(speakerLanguage, audioSettings);
+        setSpeakerToast({
+          active: true,
+          text: speakerLanguage === 'ar' ? 'ابدأ التلاوة' : 'Begin recitation',
+          lang: speakerLanguage
+        });
+        setTimeout(() => {
+          setSpeakerToast(prev => ({ ...prev, active: false }));
+        }, 2800);
       }
     }
   };
@@ -482,8 +720,35 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
       audioRecordingService.associateClipWithMistake(mistakeObj.id, voiceClip);
     }
 
+    const hangObj: RecitationHangState = {
+      active: true,
+      reason: 'mistake',
+      ayahNumber: currentAyah.numberInSurah,
+      wordIndex: currentWordIndex,
+      wordArabic: activeWord.arabic,
+      wordTransliteration: activeWord.transliteration,
+      letterHint: activeWord.tajweedRuleName || (isRtl ? 'تنبيه تجويدي' : 'Tajweed Rule'),
+      highlightLetter: activeWord.arabic.charAt(0),
+      explanation: mistakeObj.explanation,
+      isRepeatingAudio: true,
+      repeatCount: 1,
+      mistakeRecord: mistakeObj
+    };
+    setHangState(hangObj);
     setActiveMistake(mistakeObj);
     onRecordMistake(mistakeObj);
+
+    audioEngine.repeatWordAndLetterPrompt({
+      wordArabic: activeWord.arabic,
+      letterHint: activeWord.tajweedRuleName,
+      isMistake: true,
+      language: speakerLanguage,
+      settings: audioSettings,
+      playChimeFirst: false,
+      onComplete: () => {
+        setHangState(prev => (prev ? { ...prev, isRepeatingAudio: false } : null));
+      }
+    });
   };
 
   const handleRetryPhrase = () => {
@@ -512,11 +777,11 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
             {isRtl ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
           </button>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={() => setShowSurahPicker(true)}
+                onClick={() => setShowNavPicker(true)}
                 className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer group text-start"
-                title="Switch Surah (1 - 114)"
+                title="Change Surah, Ayah, or Mushaf Page"
               >
                 <span className="font-arabic text-xl sm:text-2xl font-bold text-[#1A4D4E] dark:text-[#E8ECE9]">
                   {surah.nameArabic}
@@ -526,25 +791,71 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
                 </span>
                 <ChevronDown className="w-4 h-4 text-[#C5A059] group-hover:translate-y-0.5 transition-transform" />
               </button>
-              <span className="text-xs text-[#8E9B98]">
-                • Ayah {currentAyah.numberInSurah} of {surah.numberOfAyahs}
-              </span>
+
+              {/* Ayah selector pill with quick stepper */}
+              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] text-xs">
+                <button
+                  onClick={() => {
+                    if (currentAyahIndex > 0) {
+                      setCurrentAyahIndex(prev => prev - 1);
+                      setCurrentWordIndex(0);
+                    }
+                  }}
+                  disabled={currentAyahIndex <= 0}
+                  className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                  title="Previous Ayah"
+                >
+                  {isRtl ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+                </button>
+
+                <button
+                  onClick={() => setShowNavPicker(true)}
+                  className="font-bold text-[#1A4D4E] dark:text-[#E8ECE9] hover:text-[#C5A059] transition-colors cursor-pointer"
+                  title="Select specific Ayah"
+                >
+                  {isRtl ? `الآية ${currentAyah.numberInSurah} من ${surah.numberOfAyahs}` : `Ayah ${currentAyah.numberInSurah} of ${surah.numberOfAyahs}`}
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (currentAyahIndex < surah.ayahs.length - 1) {
+                      setCurrentAyahIndex(prev => prev + 1);
+                      setCurrentWordIndex(0);
+                    }
+                  }}
+                  disabled={currentAyahIndex >= surah.ayahs.length - 1}
+                  className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+                  title="Next Ayah"
+                >
+                  {isRtl ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              {/* Page Number Pill */}
+              <button
+                onClick={() => setShowNavPicker(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EAF2ED] dark:bg-[#142A20] border border-[#C2DBCB] dark:border-[#28503E] text-xs font-bold text-[#1A4D4E] dark:text-[#72D6A5] hover:opacity-85 transition-opacity cursor-pointer"
+                title="Jump to Mushaf Page (1 - 604)"
+              >
+                <FileText className="w-3 h-3" />
+                <span>{isRtl ? `ص ${surah.pageNumber || 1}` : `Page ${surah.pageNumber || 1}`}</span>
+              </button>
             </div>
             <p className="text-[11px] text-[#6F7D7B] dark:text-[#9AA5A3]">
-              {isRtl ? 'وضع التسميع عن ظهر قلب • استماع كلمة بكلمة' : 'Reciting from memory • Real-time acoustic tracking'}
+              {isRtl ? 'وضع التسميع عن ظهر قلب • استماع كلمة بكلمة مع مراقبة التجويد' : 'Reciting from memory • Word-by-word tracking with Tajweed coaching'}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Change Surah Quick Action */}
+          {/* Change Surah / Ayah / Page Quick Action */}
           <button
-            onClick={() => setShowSurahPicker(true)}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#C5A059]/40 text-xs font-semibold text-[#1A4D4E] dark:text-[#C5A059] hover:bg-[#C5A059]/10 transition-colors cursor-pointer bg-[#FDFBF7] dark:bg-[#172526]"
-            title="Browse all 114 Surahs"
+            onClick={() => setShowNavPicker(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#C5A059] text-xs font-bold text-[#1A4D4E] dark:text-[#C5A059] hover:bg-[#C5A059]/10 transition-colors cursor-pointer bg-[#FDFBF7] dark:bg-[#172526] shadow-xs"
+            title="Choose Surah, Ayah, or Page"
           >
             <BookOpen className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>{isRtl ? 'اختر سورة' : '114 Surahs'}</span>
+            <span>{isRtl ? 'تغيير السورة / الآية / الصفحة' : 'Surah / Ayah / Page'}</span>
           </button>
 
           {/* Audio Coach Status */}
@@ -572,6 +883,95 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
         </div>
       </div>
 
+      {/* SPEAKER & LANGUAGE SELECTION BAR (Arabic vs English Speaker) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#FDFBF7] dark:bg-[#122021] border border-[#E8E2D6] dark:border-[#232E2F] shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#EAF2ED] dark:bg-[#1A2E28] text-[#1A4D4E] dark:text-[#72D6A5] flex items-center justify-center">
+            <Volume2 className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#1A4D4E] dark:text-[#E8ECE9]">
+                {isRtl ? 'المتحدث الصوتي لبدء التلاوة' : 'Recitation Speaker Voice'}
+              </span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#C5A059]/15 text-[#8A6D3B] dark:text-[#D4B574]">
+                {speakerLanguage === 'ar' ? '🇸🇦 عربي' : '🇬🇧 English'}
+              </span>
+            </div>
+            <p className="text-[11px] text-[#6F7D7B] dark:text-[#9AA5A3]">
+              {speakerLanguage === 'ar'
+                ? (isRtl ? 'ينطق المتحدث: "ابدأ التلاوة"' : 'Speaker prompt: "ابدأ التلاوة" (Arabic)')
+                : (isRtl ? 'ينطق المتحدث: "Begin recitation"' : 'Speaker prompt: "Begin recitation" (English)')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Dual Speaker Selector Pill */}
+          <div className="flex items-center bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] rounded-xl p-0.5 text-xs">
+            <button
+              onClick={() => handleSetSpeakerLang('ar')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                speakerLanguage === 'ar'
+                  ? 'bg-[#1A4D4E] dark:bg-[#C5A059] text-white dark:text-[#0E1A1A] shadow-xs'
+                  : 'text-[#5F6E6C] dark:text-[#A6B2AF] hover:text-[#1A4D4E] dark:hover:text-[#E8ECE9]'
+              }`}
+              title="اختر المتحدث باللغة العربية (ابدأ التلاوة)"
+            >
+              <span>🇸🇦</span>
+              <span>{isRtl ? 'متحدث عربي' : 'Arabic Speaker'}</span>
+            </button>
+            <button
+              onClick={() => handleSetSpeakerLang('en')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                speakerLanguage === 'en'
+                  ? 'bg-[#1A4D4E] dark:bg-[#C5A059] text-white dark:text-[#0E1A1A] shadow-xs'
+                  : 'text-[#5F6E6C] dark:text-[#A6B2AF] hover:text-[#1A4D4E] dark:hover:text-[#E8ECE9]'
+              }`}
+              title="Select English Speaker (Begin recitation)"
+            >
+              <span>🇬🇧</span>
+              <span>{isRtl ? 'متحدث إنجليزي' : 'English Speaker'}</span>
+            </button>
+          </div>
+
+          {/* Test / Audition Speaker Button */}
+          <button
+            onClick={() => handleTestSpeaker(speakerLanguage)}
+            className="px-3 py-1.5 rounded-xl bg-white dark:bg-[#172526] border border-[#C2DBCB] dark:border-[#232E2F] text-xs font-semibold text-[#1A4D4E] dark:text-[#72D6A5] hover:bg-[#EAF2ED] dark:hover:bg-[#1A2E28] transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Hear how the speaker pronounces the begin recitation prompt"
+          >
+            <Play className="w-3 h-3 fill-current text-[#C5A059]" />
+            <span>{isRtl ? 'استمع للنداء' : 'Test "Begin" Prompt'}</span>
+          </button>
+
+          {/* UI Language Switcher */}
+          {onToggleDirection && (
+            <button
+              onClick={onToggleDirection}
+              className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] text-xs font-semibold text-[#5F6E6C] dark:text-[#A6B2AF] hover:text-[#1A4D4E] dark:hover:text-[#E8ECE9] transition-colors cursor-pointer"
+              title={isRtl ? 'Switch entire interface to English' : 'التبديل إلى الواجهة العربية بالكامل'}
+            >
+              {isRtl ? '🌐 English UI' : '🌐 الواجهة العربية'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Spoken Announcement Notification Toast */}
+      {speakerToast.active && (
+        <div className="flex items-center justify-center -mb-2 animate-bounce">
+          <div className="py-1.5 px-4 rounded-full bg-[#1A4D4E] dark:bg-[#C5A059] text-white dark:text-[#0E1A1A] text-xs font-bold flex items-center gap-2 shadow-lg">
+            <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+            <span>
+              {speakerToast.lang === 'ar'
+                ? '🎙️ المرشد الصوتي: "ابدأ التلاوة"'
+                : '🎙️ Voice Speaker: "Begin recitation"'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* RECITATION CANVAS / STAGE */}
       <div className="relative min-h-[380px] sm:min-h-[440px] rounded-3xl bg-[#FDFBF7] dark:bg-[#101E1F] border border-[#E8E2D6] dark:border-[#232E2F] shadow-sm p-6 sm:p-12 flex flex-col items-center justify-between text-center overflow-hidden transition-all">
         
@@ -589,6 +989,16 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059]" />
             <span>{isRtl ? `الآية ${currentAyah.numberInSurah}` : `Verse ${currentAyah.numberInSurah}`}</span>
             <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059]" />
+
+            {/* Quick Prompt Button when student forgets or hesitates */}
+            <button
+              onClick={() => handleForgottenAyahPrompt()}
+              className="ms-2 px-2.5 py-1 rounded-xl bg-[#F5E6CC] dark:bg-[#2F2718] border border-[#C5A059]/40 text-[#8B6E30] dark:text-[#E5C37A] hover:bg-[#ecdabb] text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+              title="نسيت الآية أو الكلمة؟ اضغط لتلقين وتكرار النطق ثم المتابعة"
+            >
+              <Lightbulb className="w-3 h-3 text-[#C5A059]" />
+              <span>{isRtl ? 'نسيت الآية؟ تلقين' : 'Forgot Ayah? Prompt'}</span>
+            </button>
           </div>
 
           {/* Tracking Engine Selector */}
@@ -669,23 +1079,59 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
           </div>
         )}
 
+        {/* LIVE TAJWEED RULES COACHING BAR */}
+        <div className="relative z-10 w-full max-w-2xl mx-auto my-1">
+          <LiveTajweedCoach
+            currentWordArabic={words[currentWordIndex]?.arabic}
+            currentWordTransliteration={words[currentWordIndex]?.transliteration}
+            rules={activeWordTajweedRules}
+            audioSettings={audioSettings}
+            speakerLanguage={speakerLanguage}
+            direction={direction}
+            onInspectRule={rule => setSelectedTajweedInspection(rule)}
+          />
+        </div>
+
+        {/* LIVE RECITATION HANG CARD: HANG ON VERSE & LETTER, REPEAT AND CONTINUE */}
+        {hangState?.active && (
+          <div className="relative z-20 w-full max-w-2xl mx-auto my-2 animate-fadeIn">
+            <RecitationHangCard
+              hangState={hangState}
+              direction={direction}
+              speakerLanguage={speakerLanguage}
+              onRepeatPrompt={handleRepeatHangPrompt}
+              onPlayMasterSheikh={handlePlaySheikhForCurrentAyah}
+              onContinue={handleContinueFromHang}
+              onRetryPhrase={handleRetryPhraseFromHang}
+              onOpenDetailedAnalysis={() => setShowDetailedMistakeModal(true)}
+              onDismiss={() => setHangState(null)}
+            />
+          </div>
+        )}
+
         {/* CORE TEXT: WORD-BY-WORD UTHMANI SCRIPT */}
-        <div className="relative z-10 my-auto py-6 max-w-2xl">
+        <div className="relative z-10 my-auto py-4 max-w-2xl">
           <div
-            className="font-arabic text-3xl sm:text-4xl md:text-5xl font-bold leading-[2.2] sm:leading-[2.4] flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-4 gap-y-2 select-none"
+            className="font-arabic text-3xl sm:text-4xl md:text-5xl font-bold leading-[2.2] sm:leading-[2.4] flex flex-wrap items-center justify-center gap-x-3 sm:gap-x-4 gap-y-3 select-none"
             dir="rtl"
           >
             {words.map((word, idx) => {
               const isPast = idx < currentWordIndex;
               const isCurrent = idx === currentWordIndex;
               const isUpcoming = idx > currentWordIndex;
+              const wordTajweedRules = ayahTajweedMap.get(idx) || [];
+              const isHangingWord = hangState?.active && hangState.wordIndex === idx;
 
               return (
-                <span
+                <div
                   key={word.id}
                   onClick={() => setCurrentWordIndex(idx)}
-                  className={`relative transition-all duration-300 px-2 py-0.5 rounded-xl cursor-pointer ${
-                    isPast
+                  className={`relative flex flex-col items-center transition-all duration-300 px-2.5 py-1.5 rounded-2xl cursor-pointer ${
+                    isHangingWord
+                      ? hangState.reason === 'mistake'
+                        ? 'bg-[#FDF2F0] dark:bg-[#381614] text-[#D96E54] dark:text-[#F87171] border-2 border-[#D96E54] scale-110 shadow-lg ring-4 ring-[#D96E54]/30 animate-pulse z-10'
+                        : 'bg-[#FDF6E9] dark:bg-[#2C2314] text-[#8B6E30] dark:text-[#E5C37A] border-2 border-[#C5A059] scale-110 shadow-lg ring-4 ring-[#C5A059]/30 animate-pulse z-10'
+                      : isPast
                       ? 'text-[#1A4D4E] dark:text-[#72D6A5] opacity-90'
                       : isCurrent
                       ? 'bg-[#F5E6CC] dark:bg-[#2F2718] text-[#8B6E30] dark:text-[#E5C37A] border-b-2 border-[#C5A059] scale-105 shadow-sm ring-2 ring-[#C5A059]/20'
@@ -695,12 +1141,45 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
                   }`}
                   title={`Click to jump to: ${word.transliteration}`}
                 >
-                  {word.arabic}
+                  {/* Floating badge for hanging word */}
+                  {isHangingWord && (
+                    <span
+                      className={`absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2 py-0.5 rounded-full text-white whitespace-nowrap shadow-sm z-20 ${
+                        hangState.reason === 'mistake' ? 'bg-[#D96E54]' : 'bg-[#C5A059]'
+                      }`}
+                    >
+                      {hangState.reason === 'mistake'
+                        ? (isRtl ? 'وقف للتصحيح' : 'Correct Letter')
+                        : (isRtl ? 'وقف للتلقين' : 'Verse Prompt')}
+                    </span>
+                  )}
+
+                  <span>{word.arabic}</span>
+
+                  {/* Word-level Tajweed Rule Indicators */}
+                  {wordTajweedRules.length > 0 && (
+                    <div className="flex items-center gap-0.5 mt-0.5" dir="ltr">
+                      {wordTajweedRules.slice(0, 2).map((r, rIdx) => (
+                        <span
+                          key={rIdx}
+                          onClick={e => {
+                            e.stopPropagation();
+                            setSelectedTajweedInspection(r);
+                          }}
+                          className={`text-[8px] sm:text-[9px] px-1 py-0.2 rounded font-sans font-bold leading-tight cursor-pointer hover:scale-115 transition-transform ${r.badgeBg} ${r.badgeText}`}
+                          title={`${isRtl ? r.ruleNameArabic : r.ruleNameEnglish}: ${isRtl ? r.coachingTipArabic : r.coachingTip}`}
+                        >
+                          {isRtl ? r.ruleNameArabic.split(' ')[0] : r.ruleType.toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Active word tracking dot indicator */}
-                  {isCurrent && (
+                  {isCurrent && !isHangingWord && (
                     <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#C5A059] animate-ping" />
                   )}
-                </span>
+                </div>
               );
             })}
           </div>
@@ -847,6 +1326,15 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
           >
             Simulate Skipped Word
           </button>
+
+          <button
+            onClick={() => handleForgottenAyahPrompt()}
+            className="px-3 py-1.5 rounded-lg bg-[#F5E6CC] dark:bg-[#2F2718] border border-[#C5A059]/40 text-[#8B6E30] dark:text-[#E5C37A] hover:bg-[#ecdabb] font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5 active:scale-95"
+            title="Simulates student hesitating or forgetting the ayah; hangs, prompts and repeats word"
+          >
+            <Lightbulb className="w-3.5 h-3.5 text-[#C5A059]" />
+            <span>{isRtl ? '💡 محاكاة نسيان الآية / التردد (تلقين وتكرار)' : '💡 Simulate Forgot Ayah / Hesitation'}</span>
+          </button>
         </div>
       </div>
 
@@ -863,27 +1351,39 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
             {showPeek ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
           </button>
 
-          {/* Center Thumb: Large Primary Microphone Button */}
-          <button
-            onClick={toggleListening}
-            className={`flex-1 py-3 px-6 rounded-full font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl cursor-pointer ${
-              isListening
-                ? 'bg-[#D96E54] text-white hover:opacity-95 shadow-[#D96E54]/25 ring-4 ring-[#D96E54]/20'
-                : 'bg-[#1A4D4E] hover:bg-[#153e3f] text-white shadow-[#1A4D4E]/25'
-            }`}
-          >
-            {isListening ? (
-              <>
-                <MicOff className="w-5 h-5" />
-                <span>{isRtl ? 'إيقاف الاستماع' : 'Pause Listening'}</span>
-              </>
-            ) : (
-              <>
-                <Mic className="w-5 h-5 text-[#C5A059]" />
-                <span>{isRtl ? 'بدء التسميع الصوتي' : 'Tap to Recite'}</span>
-              </>
-            )}
-          </button>
+          {/* Center Thumb: Primary Button (Continue Recitation when hanging, or Microphone Toggle) */}
+          {hangState?.active ? (
+            <button
+              onClick={handleContinueFromHang}
+              className="flex-1 py-3 px-6 rounded-full font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl cursor-pointer bg-[#1A4D4E] hover:bg-[#153e3f] dark:bg-[#27827E] dark:hover:bg-[#21706D] text-white shadow-[#1A4D4E]/25 animate-pulse"
+              title="Continue recitation"
+            >
+              <span>{isRtl ? '▶️ متابعة التلاوة والاستمرار' : '▶️ Continue Recitation'}</span>
+            </button>
+          ) : (
+            <button
+              onClick={toggleListening}
+              className={`flex-1 py-3 px-6 rounded-full font-bold text-sm flex items-center justify-center gap-2.5 transition-all shadow-xl cursor-pointer ${
+                isListening
+                  ? 'bg-[#D96E54] text-white hover:opacity-95 shadow-[#D96E54]/25 ring-4 ring-[#D96E54]/20'
+                  : 'bg-[#1A4D4E] hover:bg-[#153e3f] text-white shadow-[#1A4D4E]/25'
+              }`}
+            >
+              {isListening ? (
+                <>
+                  <MicOff className="w-5 h-5" />
+                  <span>{isRtl ? 'إيقاف الاستماع' : 'Pause Listening'}</span>
+                </>
+              ) : (
+                <>
+                  <Mic className="w-5 h-5 text-[#C5A059]" />
+                  <span>
+                    {speakerLanguage === 'ar' ? 'ابدأ التلاوة' : 'Begin Recitation'}
+                  </span>
+                </>
+              )}
+            </button>
+          )}
 
           {/* Right Thumb: Reset / Re-recite Current Ayah */}
           <button
@@ -899,111 +1399,46 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
         </div>
       </div>
 
-      {/* CORRECTION OVERLAY MODAL (When a mistake is detected) */}
-      {activeMistake && (
+      {/* CORRECTION OVERLAY MODAL (When detailed acoustic review is requested) */}
+      {showDetailedMistakeModal && activeMistake && (
         <CorrectionOverlay
           mistake={activeMistake}
           audioSettings={audioSettings}
           direction={direction}
-          onRetry={handleRetryPhrase}
-          onContinue={handleContinueAfterCorrection}
+          onRetry={() => {
+            setShowDetailedMistakeModal(false);
+            handleRetryPhraseFromHang();
+          }}
+          onContinue={() => {
+            setShowDetailedMistakeModal(false);
+            handleContinueFromHang();
+          }}
           referenceAudioUrl={currentAyah.audioUrl}
         />
       )}
 
-      {/* 114 SURAHS QUICK PICKER MODAL */}
-      {showSurahPicker && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="w-full max-w-xl bg-[#FDFBF7] dark:bg-[#122021] border border-[#E8E2D6] dark:border-[#232E2F] rounded-3xl p-6 shadow-2xl flex flex-col max-h-[85vh] space-y-4">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D6] dark:border-[#232E2F]">
-              <div>
-                <h3 className="text-lg font-bold text-[#1A4D4E] dark:text-[#E8ECE9]">
-                  {isRtl ? 'اختر سورة للتسميع (1 - 114)' : 'Choose Surah for Recitation (1 - 114)'}
-                </h3>
-                <p className="text-xs text-[#8E9B98]">
-                  {isRtl ? 'جميع سور القرآن الكريم مع تتبع الأحكام والحركات' : 'All 114 Surahs with real-time acoustic tracking & tajweed'}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowSurahPicker(false)}
-                className="p-2 rounded-xl text-[#8E9B98] hover:bg-[#F5F2ED] dark:hover:bg-[#172526] transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+      {/* COMPREHENSIVE SURAH / AYAH / PAGE NAVIGATION MODAL */}
+      <QuranNavigationModal
+        isOpen={showNavPicker}
+        direction={direction}
+        currentSurah={surah}
+        currentAyahIndex={currentAyahIndex}
+        allSurahsList={allSurahsList}
+        onClose={() => setShowNavPicker(false)}
+        onSelectSurah={handleSelectSurahNumber}
+        onSelectAyah={handleSelectAyahIndex}
+        onSelectPage={handleSelectPageNumber}
+      />
 
-            {/* Search */}
-            <div className="relative">
-              <input
-                type="text"
-                value={surahPickerSearch}
-                onChange={e => setSurahPickerSearch(e.target.value)}
-                placeholder={isRtl ? 'ابحث باسم السورة أو رقمها (مثال: 67، الملك، Mulk)...' : 'Search by number or name (e.g. 67, Mulk, الملك)...'}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] text-xs focus:outline-none focus:border-[#C5A059]"
-                autoFocus
-              />
-              <Search className="w-4 h-4 absolute left-3.5 top-3 text-[#8E9B98]" />
-            </div>
-
-            {/* Surah List */}
-            <div className="overflow-y-auto space-y-2 pr-1 flex-1 max-h-[50vh]">
-              {filteredPickerSurahs.map(item => {
-                const isSelected = item.number === surah.number;
-                return (
-                  <div
-                    key={item.number}
-                    onClick={() => handleSelectFromPicker(item)}
-                    className={`p-3 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#EAF2ED] dark:bg-[#142A20] border-[#1A4D4E] dark:border-[#72D6A5]'
-                        : 'bg-[#FDFBF7] dark:bg-[#152324] border-[#E8E2D6] dark:border-[#232E2F] hover:border-[#C5A059]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-[#F5F2ED] dark:bg-[#1B2B2C] flex items-center justify-center text-xs font-bold text-[#1A4D4E] dark:text-[#C5A059] flex-shrink-0">
-                        {item.number}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-xs text-[#1A4D4E] dark:text-[#E8ECE9] truncate">
-                            {item.nameEnglish}
-                          </span>
-                          <span className="text-[10px] text-[#8E9B98]">
-                            • Juz {item.juzNumber}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-[#8E9B98] truncate">
-                          {item.nameTranslation} • {item.numberOfAyahs} Ayahs
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="font-arabic text-lg font-bold text-[#1A4D4E] dark:text-[#E8ECE9]" dir="rtl">
-                        {item.nameArabic}
-                      </span>
-                      {isSelected && (
-                        <span className="text-xs text-[#1A4D4E] dark:text-[#72D6A5] font-bold">
-                          ✓
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Bottom status */}
-            {isSwitchingSurah && (
-              <div className="text-center py-2 text-xs text-[#C5A059] flex items-center justify-center gap-2">
-                <span className="w-3.5 h-3.5 border-2 border-[#C5A059] border-t-transparent rounded-full animate-spin" />
-                <span>Loading Ayahs...</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* TAJWEED RULE INSPECTOR MODAL */}
+      <TajweedRuleInspectorModal
+        rule={selectedTajweedInspection}
+        wordArabic={words[currentWordIndex]?.arabic}
+        direction={direction}
+        audioSettings={audioSettings}
+        speakerLanguage={speakerLanguage}
+        onClose={() => setSelectedTajweedInspection(null)}
+      />
     </div>
   );
 };

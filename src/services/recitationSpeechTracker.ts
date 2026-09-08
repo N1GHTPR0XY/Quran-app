@@ -24,6 +24,7 @@ export interface TrackerCallbacks {
   onStatusChange: (status: 'idle' | 'listening' | 'speaking-detected' | 'paused' | 'error', message?: string) => void;
   onError: (errorType: 'permission-denied' | 'unsupported' | 'network' | 'generic', detail?: string) => void;
   onHarakahMistakeDetected?: (mistake: HarakahDetail, wordIndex: number) => void;
+  onHesitationDetected?: (wordIndex: number) => void;
 }
 
 // Arabic diacritic stripping and normalization
@@ -120,6 +121,11 @@ export class RecitationSpeechTracker {
   private sensitivityThreshold = 0.045; // RMS threshold for voice activity
   private lastSpokenTranscript = '';
 
+  private lastActivityTime = Date.now();
+  private hesitationThresholdMs = 4500;
+  private lastHesitationFiredTime = 0;
+  private autoPromptEnabled = true;
+
   constructor() {
     // Check SpeechRecognition support
     if (typeof window !== 'undefined') {
@@ -127,6 +133,18 @@ export class RecitationSpeechTracker {
       const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       this.isSpeechSupported = !!SpeechRec;
     }
+  }
+
+  public setAutoPromptEnabled(enabled: boolean) {
+    this.autoPromptEnabled = enabled;
+  }
+
+  public setHesitationThreshold(ms: number) {
+    this.hesitationThresholdMs = ms;
+  }
+
+  public resetActivityTimer() {
+    this.lastActivityTime = Date.now();
   }
 
   public setTrackingMode(mode: TrackingMode) {
@@ -148,10 +166,12 @@ export class RecitationSpeechTracker {
   public setWords(words: WordMatchCandidate[], currentIndex: number = 0) {
     this.wordsList = words;
     this.currentTargetIndex = currentIndex;
+    this.lastActivityTime = Date.now();
   }
 
   public setCurrentTargetIndex(index: number) {
     this.currentTargetIndex = index;
+    this.lastActivityTime = Date.now();
   }
 
   /**
@@ -271,11 +291,13 @@ export class RecitationSpeechTracker {
       // Voice Onset
       this.isVoiceAboveThreshold = true;
       this.voiceStartTime = now;
+      this.lastActivityTime = now;
       this.callbacks?.onStatusChange('speaking-detected');
     } else if (!isAbove && this.isVoiceAboveThreshold) {
       // Voice Offset / Pause
       const duration = now - this.voiceStartTime;
       this.isVoiceAboveThreshold = false;
+      this.lastActivityTime = now;
 
       // If the reciter spoke a distinct syllable/word (duration between 250ms and 3000ms)
       // and minimum pause interval has elapsed since last trigger (> 450ms)
@@ -289,6 +311,7 @@ export class RecitationSpeechTracker {
         }
       }
     } else if (isAbove && this.isVoiceAboveThreshold) {
+      this.lastActivityTime = now;
       // Sustained recitation: if the reciter elongates a word with tajweed (e.g. Madd > 1200ms)
       const sustainedDuration = now - this.voiceStartTime;
       if (sustainedDuration > 1400 && now - this.lastAcousticTriggerTime >= 1400) {
@@ -296,6 +319,17 @@ export class RecitationSpeechTracker {
           this.triggerWordAdvance('acoustic', 'Tajweed Elongation');
           this.lastAcousticTriggerTime = now;
         }
+      }
+    } else if (!isAbove && !this.isVoiceAboveThreshold) {
+      // Extended silence / hesitation check (e.g., student forgot the next ayah or word)
+      if (
+        this.autoPromptEnabled &&
+        this.isListening &&
+        now - this.lastActivityTime >= this.hesitationThresholdMs &&
+        now - this.lastHesitationFiredTime >= 9000
+      ) {
+        this.lastHesitationFiredTime = now;
+        this.callbacks?.onHesitationDetected?.(this.currentTargetIndex);
       }
     }
   }
@@ -436,6 +470,7 @@ export class RecitationSpeechTracker {
   private triggerWordAdvance(source: 'speech-recognition' | 'acoustic', token: string) {
     if (!this.callbacks || !this.isListening) return;
 
+    this.lastActivityTime = Date.now();
     const targetIdx = this.currentTargetIndex;
     this.callbacks.onWordMatched(targetIdx, token, source === 'speech-recognition' ? 0.95 : 0.8);
   }

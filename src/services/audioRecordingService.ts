@@ -69,8 +69,15 @@ class AudioRecordingService {
       const options = selectedMime ? { mimeType: selectedMime } : {};
       this.mediaRecorder = new MediaRecorder(stream, options);
 
+      // Buffer flow protection: keep maximum 120 chunks (60 seconds rolling window)
+      // to strictly prevent memory leaks, browser tab crashes, or buffer bloat
+      const MAX_RECORDING_CHUNKS = 120;
+
       this.mediaRecorder.ondataavailable = (event: BlobEvent) => {
         if (event.data && event.data.size > 0) {
+          if (this.recordedChunks.length >= MAX_RECORDING_CHUNKS) {
+            this.recordedChunks.shift(); // Evict oldest audio chunk
+          }
           this.recordedChunks.push(event.data);
         }
       };

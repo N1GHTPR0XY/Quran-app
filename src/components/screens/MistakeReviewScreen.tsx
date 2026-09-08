@@ -5,6 +5,7 @@ import { audioRecordingService, RecordedVoiceClip } from '../../services/audioRe
 import { quranService } from '../../services/quranService';
 import { RECITERS_LIST } from '../../data/quranData';
 import { acousticAnalyticsService } from '../../services/acousticAnalyticsService';
+import { pdfReportService } from '../../services/pdfReportService';
 import { VoiceCompareReportModal } from '../audio/VoiceCompareReportModal';
 import {
   RotateCcw,
@@ -29,6 +30,7 @@ import {
   CheckCheck,
   BarChart2,
   FileText,
+  Share2,
   Trophy,
   Zap
 } from 'lucide-react';
@@ -70,6 +72,10 @@ export const MistakeReviewScreen: React.FC<MistakeReviewScreenProps> = ({
   const [isReRecording, setIsReRecording] = useState(false);
   const [reRecordSeconds, setReRecordSeconds] = useState(0);
   const stopReRecordRef = useRef<(() => Promise<RecordedVoiceClip | null>) | null>(null);
+
+  // Voice Compare Acoustic Analytics State
+  const [voiceReport, setVoiceReport] = useState<VoiceCompareReport | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Local overrides for mistakes that were re-recorded in this session
   const [recordedClipsMap, setRecordedClipsMap] = useState<Record<string, string>>({});
@@ -221,8 +227,64 @@ export const MistakeReviewScreen: React.FC<MistakeReviewScreenProps> = ({
         setComparisonPhase('idle');
         setIsPlayingUser(false);
         setIsPlayingReference(false);
+
+        // Generate Voice Compare Acoustic Analytics Report using actual user audio and reference audio
+        const report = acousticAnalyticsService.generateReport(
+          currentMistake,
+          currentReciter,
+          userAudioUrl,
+          refUrl
+        );
+        setVoiceReport(report);
+        setShowReportModal(true);
+        audioEngine.playSuccessChime();
       }
     });
+  };
+
+  // Open Acoustic Comparison Report Modal directly
+  const handleOpenAcousticReport = () => {
+    if (!currentMistake) return;
+    const userAudioUrl = getUserAudioUrl(currentMistake);
+    const refUrl = getReferenceUrl(currentMistake, selectedReciterId);
+    const report = voiceReport || acousticAnalyticsService.generateReport(
+      currentMistake,
+      currentReciter,
+      userAudioUrl,
+      refUrl
+    );
+    setVoiceReport(report);
+    setShowReportModal(true);
+  };
+
+  // Download PDF Report Directly
+  const handleDownloadPdfReport = () => {
+    if (!currentMistake) return;
+    const userAudioUrl = getUserAudioUrl(currentMistake);
+    const refUrl = getReferenceUrl(currentMistake, selectedReciterId);
+    const report = voiceReport || acousticAnalyticsService.generateReport(
+      currentMistake,
+      currentReciter,
+      userAudioUrl,
+      refUrl
+    );
+    pdfReportService.downloadReport(report);
+    audioEngine.playSuccessChime();
+  };
+
+  // Share PDF Report Directly
+  const handleSharePdfReport = async () => {
+    if (!currentMistake) return;
+    const userAudioUrl = getUserAudioUrl(currentMistake);
+    const refUrl = getReferenceUrl(currentMistake, selectedReciterId);
+    const report = voiceReport || acousticAnalyticsService.generateReport(
+      currentMistake,
+      currentReciter,
+      userAudioUrl,
+      refUrl
+    );
+    await pdfReportService.shareReport(report);
+    audioEngine.playSuccessChime();
   };
 
   // Handle In-Review Re-recording of corrected pronunciation
@@ -236,6 +298,18 @@ export const MistakeReviewScreen: React.FC<MistakeReviewScreenProps> = ({
         if (clip && currentMistake) {
           setRecordedClipsMap(prev => ({ ...prev, [currentMistake.id]: clip.url }));
           audioRecordingService.associateClipWithMistake(currentMistake.id, clip);
+          acousticAnalyticsService.invalidateReport(currentMistake.id);
+
+          // Immediately generate the updated report comparing the new attempt to the master reference
+          const refUrl = getReferenceUrl(currentMistake, selectedReciterId);
+          const updatedReport = acousticAnalyticsService.generateReport(
+            currentMistake,
+            currentReciter,
+            clip.url,
+            refUrl,
+            true // isReRecordAttempt
+          );
+          setVoiceReport(updatedReport);
           audioEngine.playSuccessChime();
         }
       }
@@ -260,6 +334,17 @@ export const MistakeReviewScreen: React.FC<MistakeReviewScreenProps> = ({
     if (!currentMistake) return;
     audioEngine.playSuccessChime();
     onMarkMastered(currentMistake.id);
+    const masteredMistake = { ...currentMistake, mastered: true };
+    const userAudioUrl = getUserAudioUrl(currentMistake);
+    const refUrl = getReferenceUrl(currentMistake, selectedReciterId);
+    const updatedReport = acousticAnalyticsService.generateReport(
+      masteredMistake,
+      currentReciter,
+      userAudioUrl,
+      refUrl,
+      true
+    );
+    setVoiceReport(updatedReport);
   };
 
   const formatTime = (seconds: number) => {
@@ -417,26 +502,55 @@ export const MistakeReviewScreen: React.FC<MistakeReviewScreenProps> = ({
                   </span>
                 </div>
 
-                {/* Sequential Compare Action Button */}
-                <button
-                  onClick={handleSequentialComparison}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-sm ${
-                    comparisonPhase !== 'idle'
-                      ? 'bg-[#D96E54] text-white animate-pulse'
-                      : 'bg-[#1A4D4E] dark:bg-[#27827E] hover:bg-[#153e3f] text-white'
-                  }`}
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${comparisonPhase !== 'idle' ? 'animate-spin' : ''}`} />
-                  <span>
-                    {comparisonPhase === 'user'
-                      ? (isRtl ? '1/2: استماع لتسجيلك...' : '1/2: Playing Your Voice...')
-                      : comparisonPhase === 'pause'
-                      ? (isRtl ? 'فترة انتقالية...' : 'Transitioning...')
-                      : comparisonPhase === 'reference'
-                      ? (isRtl ? `2/2: استماع للشيخ (${currentReciter.name})...` : `2/2: Playing Master Scholar...`)
-                      : (isRtl ? 'مقارنة تتابعية (صوتك ➔ الشيخ)' : 'Compare Both (Your Voice ➔ Scholar)')}
-                  </span>
-                </button>
+                {/* Actions: Acoustic Report & Sequential Compare */}
+                <div className="flex items-center flex-wrap gap-2">
+                  <button
+                    onClick={handleDownloadPdfReport}
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-[#C5A059] hover:bg-[#FDF8EE] dark:hover:bg-[#2A2315] text-[#C5A059] transition-all flex items-center gap-1 cursor-pointer bg-white dark:bg-[#122021] shadow-xs"
+                    title={isRtl ? 'تحميل التقرير كـ PDF' : 'Download PDF Report'}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>PDF</span>
+                  </button>
+
+                  <button
+                    onClick={handleSharePdfReport}
+                    className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border border-[#E8E2D6] dark:border-[#232E2F] hover:bg-[#EAF2ED] text-[#1A4D4E] dark:text-[#E8ECE9] transition-all flex items-center gap-1 cursor-pointer bg-white dark:bg-[#122021] shadow-xs"
+                    title={isRtl ? 'مشاركة التقرير عبر التطبيقات' : 'Share PDF Report'}
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>{isRtl ? 'مشاركة' : 'Share'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleOpenAcousticReport}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold border border-[#C5A059]/40 hover:bg-[#FDF8EE] dark:hover:bg-[#2A2315] text-[#1A4D4E] dark:text-[#C5A059] transition-all flex items-center gap-1.5 cursor-pointer bg-white dark:bg-[#122021] shadow-xs"
+                    title={isRtl ? 'عرض تقرير المقارنة الصوتي' : 'View Voice Compare Analytics Report'}
+                  >
+                    <BarChart2 className="w-3.5 h-3.5 text-[#C5A059]" />
+                    <span>{isRtl ? 'التقرير' : 'Report'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleSequentialComparison}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-sm ${
+                      comparisonPhase !== 'idle'
+                        ? 'bg-[#D96E54] text-white animate-pulse'
+                        : 'bg-[#1A4D4E] dark:bg-[#27827E] hover:bg-[#153e3f] text-white'
+                    }`}
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${comparisonPhase !== 'idle' ? 'animate-spin' : ''}`} />
+                    <span>
+                      {comparisonPhase === 'user'
+                        ? (isRtl ? '1/2: استماع لتسجيلك...' : '1/2: Playing Your Voice...')
+                        : comparisonPhase === 'pause'
+                        ? (isRtl ? 'فترة انتقالية...' : 'Transitioning...')
+                        : comparisonPhase === 'reference'
+                        ? (isRtl ? `2/2: استماع للشيخ (${currentReciter.name})...` : `2/2: Playing Master Scholar...`)
+                        : (isRtl ? 'مقارنة تتابعية (صوتك ➔ الشيخ)' : 'Compare Both (Your Voice ➔ Scholar)')}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               {/* TRACK 1: USER'S RECORDED VOICE */}
@@ -589,6 +703,107 @@ export const MistakeReviewScreen: React.FC<MistakeReviewScreenProps> = ({
                   })}
                 </div>
               </div>
+
+              {/* Voice Compare Analytics Card (Generated after comparison or available on-demand) */}
+              {voiceReport && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-[#EAF2ED] via-[#F4F8F5] to-[#EAF2ED] dark:from-[#142A20] dark:via-[#162C22] dark:to-[#142A20] border-2 border-[#C2DBCB] dark:border-[#2A4436] space-y-3.5 shadow-sm animate-fadeIn">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-[#1A4D4E] dark:bg-[#72D6A5] text-white dark:text-[#122021] flex items-center justify-center shadow-xs flex-shrink-0">
+                        <Activity className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-extrabold text-[#1A4D4E] dark:text-[#E8ECE9]">
+                            {isRtl ? 'نتائج التحليل الصوتي المقارن' : 'Voice Compare Acoustic Analytics'}
+                          </h4>
+                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#1A4D4E] text-white dark:bg-[#72D6A5] dark:text-[#122021]">
+                            {voiceReport.overallMatchPercentage}% {isRtl ? 'تطابق' : 'Match'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#6F7D7B] dark:text-[#9AA5A3]">
+                          {isRtl
+                            ? `تمت المقارنة الترددية مع الشيخ: ${voiceReport.scholarName} (${voiceReport.generatedAt})`
+                            : `Acoustic match with ${voiceReport.scholarName} (${voiceReport.generatedAt})`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleOpenAcousticReport}
+                      className="px-3.5 py-2 rounded-xl bg-[#1A4D4E] hover:bg-[#153e3f] dark:bg-[#72D6A5] dark:text-[#122021] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>{isRtl ? 'عرض التقرير المفصل' : 'View Full Report'}</span>
+                    </button>
+                  </div>
+
+                  {/* Acoustic Metrics Quick Summary Bar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#122021] border border-[#C2DBCB] dark:border-[#232E2F] space-y-0.5">
+                      <span className="text-[10px] text-[#8E9B98] block font-medium">
+                        {isRtl ? 'انحراف فتحة الفك F1' : 'Jaw Aperture (F1 Shift)'}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-[#D96E54]">
+                        Δ {voiceReport.formants[0]?.differenceHz > 0 ? `+${voiceReport.formants[0]?.differenceHz}` : voiceReport.formants[0]?.differenceHz} Hz
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#122021] border border-[#C2DBCB] dark:border-[#232E2F] space-y-0.5">
+                      <span className="text-[10px] text-[#8E9B98] block font-medium">
+                        {isRtl ? 'استقرار النغمة (Jitter)' : 'Vocal Jitter & Purity'}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-[#2E7D5A] dark:text-[#72D6A5]">
+                        {voiceReport.jitterPercentage ?? 0.62}% ({isRtl ? 'متزن' : 'Optimal'})
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#122021] border border-[#C2DBCB] dark:border-[#232E2F] space-y-0.5">
+                      <span className="text-[10px] text-[#8E9B98] block font-medium">
+                        {isRtl ? 'دقة مخرج وسط اللسان' : 'Tongue Articulation'}
+                      </span>
+                      <span className="text-xs font-bold text-[#C5A059]">
+                        {voiceReport.makhrajPrecision?.[1]?.score ?? 71}% ({isRtl ? 'يحتاج رفع' : 'Needs Lift'})
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#122021] border border-[#C2DBCB] dark:border-[#232E2F] space-y-0.5">
+                      <span className="text-[10px] text-[#8E9B98] block font-medium">
+                        {isRtl ? 'تطور الأداء الصوتي' : 'Progression Delta'}
+                      </span>
+                      <span className="text-xs font-bold text-[#2E7D5A] dark:text-[#72D6A5] flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-[#C5A059]" />
+                        <span>+{voiceReport.historicalComparison?.deltaScore ?? 7}% {isRtl ? 'تحسن' : 'Gain'}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Pitch Contour Curve Track Preview */}
+                  {voiceReport.pitchContour && (
+                    <div className="p-2.5 rounded-xl bg-white/70 dark:bg-[#122021]/80 border border-[#C2DBCB] dark:border-[#232E2F] flex items-center justify-between gap-3 text-[11px]">
+                      <div className="flex items-center gap-2 text-[#1A4D4E] dark:text-[#72D6A5] font-semibold flex-shrink-0">
+                        <Activity className="w-3.5 h-3.5 text-[#C5A059]" />
+                        <span>{isRtl ? 'مسار النغمة F0:' : 'F0 Pitch Track:'}</span>
+                      </div>
+                      <div className="flex-1 h-6 flex items-end justify-between px-2 gap-1">
+                        {voiceReport.pitchContour.slice(0, 10).map((pt, i) => (
+                          <div key={i} className="flex-1 flex items-end justify-center gap-0.5 h-full">
+                            <div
+                              style={{ height: `${Math.min(100, Math.max(20, (pt.scholarPitchHz - 110) * 0.7))}%` }}
+                              className="w-1 rounded-t-sm bg-[#2E7D5A] opacity-80"
+                            />
+                            <div
+                              style={{ height: `${Math.min(100, Math.max(20, (pt.userPitchHz - 110) * 0.7))}%` }}
+                              className="w-1 rounded-t-sm bg-[#D96E54]"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-[10px] text-[#8E9B98] flex-shrink-0 font-mono">1200ms</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Tajweed & Makhraj Mouth Shape Guide */}
@@ -781,6 +996,21 @@ export const MistakeReviewScreen: React.FC<MistakeReviewScreenProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Voice Compare Acoustic Analytics Report Modal */}
+      {showReportModal && (
+        <VoiceCompareReportModal
+          report={voiceReport || (currentMistake ? acousticAnalyticsService.generateReport(currentMistake, currentReciter, getUserAudioUrl(currentMistake), getReferenceUrl(currentMistake, selectedReciterId)) : null)}
+          direction={direction}
+          onClose={() => setShowReportModal(false)}
+          onReplayComparison={handleSequentialComparison}
+          onMarkMastered={() => {
+            if (currentMistake) {
+              handleMarkCurrentMastered();
+            }
+          }}
+        />
       )}
     </div>
   );

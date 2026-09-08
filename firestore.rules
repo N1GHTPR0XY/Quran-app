@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny all undefined paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Diagnostic Connection Test Endpoint (Read-only for app boot verification)
+    match /test/connection {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Hardened Global Security Helpers
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // Validation Blueprint for UserProfile
+    function isValidUser(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.totalMemorizedAyahs is number && data.totalMemorizedAyahs >= 0 &&
+             data.currentStreak is number && data.currentStreak >= 0 &&
+             data.dailyGoalMinutes is number && data.dailyGoalMinutes >= 1 && data.dailyGoalMinutes <= 300 &&
+             data.level in ['beginner', 'intermediate', 'advanced', 'hafiz'];
+    }
+
+    // Validation Blueprint for TajweedMistake
+    function isValidMistake(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.surahNumber is number && data.surahNumber >= 1 && data.surahNumber <= 114 &&
+             data.ayahNumber is number && data.ayahNumber >= 1 && data.ayahNumber <= 300 &&
+             data.wordArabic is string && data.wordArabic.size() > 0 && data.wordArabic.size() <= 120 &&
+             data.mistakeType is string && data.mistakeType.size() <= 80 &&
+             data.tajweedRule is string && data.tajweedRule.size() <= 100 &&
+             data.severity in ['jaliy', 'khafiy'] &&
+             data.mastered is bool;
+    }
+
+    // Validation Blueprint for RecitationSession
+    function isValidSession(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.surahNumber is number && data.surahNumber >= 1 && data.surahNumber <= 114 &&
+             data.ayahsRecited is number && data.ayahsRecited >= 0 &&
+             data.accuracyScore is number && data.accuracyScore >= 0 && data.accuracyScore <= 100 &&
+             data.durationSeconds is number && data.durationSeconds >= 0 &&
+             data.mistakesCount is number && data.mistakesCount >= 0;
+    }
+
+    // Validation Blueprint for VoiceCompareReport
+    function isValidReport(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.mistakeId is string && data.mistakeId.size() <= 128 &&
+             data.overallMatchPercentage is number && data.overallMatchPercentage >= 0 && data.overallMatchPercentage <= 100 &&
+             data.scholarName is string && data.scholarName.size() <= 100 &&
+             data.wordArabic is string && data.wordArabic.size() <= 120;
+    }
+
+    // User Profile Document & Private Memorization State
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Blanket user enumeration strictly forbidden
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().userId == userId;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && incoming().userId == userId;
+      allow delete: if false;
+
+      // User's Isolated Tajweed Mistake Review Queue
+      match /mistakes/{mistakeId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(mistakeId) && isValidMistake(incoming()) && incoming().userId == userId;
+        allow update: if isOwner(userId) && isValidId(mistakeId) && isValidMistake(incoming()) && incoming().userId == userId;
+        allow delete: if isOwner(userId) && isValidId(mistakeId);
+      }
+
+      // User's Isolated Recitation Sessions
+      match /sessions/{sessionId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(sessionId) && isValidSession(incoming()) && incoming().userId == userId;
+        allow update: if isOwner(userId) && isValidId(sessionId) && isValidSession(incoming()) && incoming().userId == userId;
+        allow delete: if isOwner(userId) && isValidId(sessionId);
+      }
+
+      // User's Isolated Voice Compare Reports
+      match /reports/{reportId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(reportId) && isValidReport(incoming()) && incoming().userId == userId;
+        allow update: if isOwner(userId) && isValidId(reportId) && isValidReport(incoming()) && incoming().userId == userId;
+        allow delete: if isOwner(userId) && isValidId(reportId);
+      }
+    }
+  }
+}
