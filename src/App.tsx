@@ -19,7 +19,6 @@ import { ProgressAnalyticsScreen } from './components/screens/ProgressAnalyticsS
 import { AudioSettingsScreen } from './components/screens/AudioSettingsScreen';
 import { ProfileSettingsScreen } from './components/screens/ProfileSettingsScreen';
 import { OnboardingScreen } from './components/screens/OnboardingScreen';
-import { DesignSystemDocScreen } from './components/screens/DesignSystemDocScreen';
 import { AuthScreen } from './components/screens/AuthScreen';
 import { auth, onAuthStateChanged } from './services/firebase';
 import { userCloudService } from './services/userCloudService';
@@ -290,12 +289,6 @@ export default function App() {
         {currentScreen === 'onboarding' && (
           <OnboardingScreen
             onComplete={handleOnboardingComplete}
-            direction={direction}
-          />
-        )}
-
-        {currentScreen === 'design-system' && (
-          <DesignSystemDocScreen
             direction={direction}
           />
         )}

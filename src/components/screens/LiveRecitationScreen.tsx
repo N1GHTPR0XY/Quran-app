@@ -41,12 +41,14 @@ import {
 import { quranService } from '../../services/quranService';
 import { audioRecordingService } from '../../services/audioRecordingService';
 import { achievementService } from '../../services/achievementService';
+import { certificateService } from '../../services/certificateService';
+import { CertificatePreviewModal } from '../certificates/CertificatePreviewModal';
 import { tajweedAnalyzer, TajweedRuleOccurrence } from '../../services/tajweedAnalyzer';
 import { QuranNavigationModal } from '../quran/QuranNavigationModal';
 import { LiveTajweedCoach } from '../quran/LiveTajweedCoach';
 import { TajweedRuleInspectorModal } from '../quran/TajweedRuleInspectorModal';
 import { RecitationHangCard } from '../quran/RecitationHangCard';
-import { RecitationHangState } from '../../types';
+import { RecitationHangState, SurahCompletionCertificate } from '../../types';
 
 interface LiveRecitationScreenProps {
   surah?: SurahData;
@@ -108,6 +110,9 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
   const [assistedPaceIntervalMs, setAssistedPaceIntervalMs] = useState(2000);
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+
+  // Certificate Modal State upon completion of a full Surah
+  const [completedCertificate, setCompletedCertificate] = useState<SurahCompletionCertificate | null>(null);
 
   // Quick Surah / Ayah / Page Navigator Modal
   const [showNavPicker, setShowNavPicker] = useState(false);
@@ -207,14 +212,21 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
       } else {
         // Completed entire Surah!
         achievementService.unlockBadge('surah_mastered');
+        const cert = certificateService.recordSurahCompletion(
+          surah.number,
+          98.6,
+          'زيد بن أنس الأنصاري',
+          audioSettings.reciterName
+        );
+        setCompletedCertificate(cert);
         confetti({
-          particleCount: 80,
-          spread: 70,
+          particleCount: 90,
+          spread: 75,
           origin: { y: 0.6 },
           colors: ['#C5A869', '#154D4B', '#2E7D5A', '#FBF9F5']
         });
         audioEngine.speakGuidance(
-          `Masha'Allah! You have completed the recitation of ${surah.nameEnglish}. You have earned the Surah Mastered badge!`,
+          `Masha'Allah! You have completed the recitation of ${surah.nameEnglish}. You have earned an official printable completion certificate!`,
           audioSettings
         );
         setIsListening(false);
@@ -1439,6 +1451,15 @@ export const LiveRecitationScreen: React.FC<LiveRecitationScreenProps> = ({
         speakerLanguage={speakerLanguage}
         onClose={() => setSelectedTajweedInspection(null)}
       />
+
+      {/* SURAH COMPLETION CERTIFICATE PREVIEW MODAL */}
+      {completedCertificate && (
+        <CertificatePreviewModal
+          certificate={completedCertificate}
+          direction={direction}
+          onClose={() => setCompletedCertificate(null)}
+        />
+      )}
     </div>
   );
 };

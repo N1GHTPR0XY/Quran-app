@@ -15,6 +15,183 @@ export interface RecordedVoiceClip {
   wordArabic?: string;
 }
 
+export interface RecitedPlaceRecord {
+  id: string;
+  surahNumber: number;
+  surahName: string;
+  ayahNumber: number;
+  ayahTextArabic: string;
+  wordArabic?: string;
+  userRecitationText?: string;
+  timestamp: string;
+  durationSeconds: number;
+  audioUrl?: string;
+  status: 'needs_practice' | 'good' | 'mastered';
+  mistakeId?: string;
+  mistakeType?: string;
+  tajweedRule?: string;
+  explanation?: string;
+  takeLabel?: string;
+}
+
+const DEFAULT_SEEDED_PLACES: RecitedPlaceRecord[] = [
+  {
+    id: 'place_1_7_take2',
+    surahNumber: 1,
+    surahName: 'Al-Fatihah',
+    ayahNumber: 7,
+    ayahTextArabic: 'صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ ٱلْمَغْضُوبِ عَلَيْهِمْ وَلَا ٱلضَّآلِّينَ',
+    wordArabic: 'ٱلضَّآلِّينَ',
+    userRecitationText: 'aḍ-ḍālīn (Shortened to 2 Harakat)',
+    timestamp: 'Today, 10:14 AM',
+    durationSeconds: 4.2,
+    status: 'needs_practice',
+    mistakeId: 'm-1',
+    mistakeType: 'tajweed_slip',
+    tajweedRule: 'Madd',
+    explanation: 'Madd Lazim Kalimi: extend the Alif for 6 counts with heavy Shaddah on Lam.',
+    takeLabel: 'Take 2 (Current Active)'
+  },
+  {
+    id: 'place_1_7_take1',
+    surahNumber: 1,
+    surahName: 'Al-Fatihah',
+    ayahNumber: 7,
+    ayahTextArabic: 'صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ ٱلْمَغْضُوبِ عَلَيْهِمْ وَلَا ٱلضَّآلِّينَ',
+    wordArabic: 'ٱلضَّآلِّينَ',
+    userRecitationText: 'aḍ-ḍāāllīn (Initial attempt - 3 Harakat)',
+    timestamp: 'Today, 10:10 AM',
+    durationSeconds: 3.9,
+    status: 'needs_practice',
+    mistakeId: 'm-1',
+    mistakeType: 'tajweed_slip',
+    tajweedRule: 'Madd',
+    explanation: 'First take before teacher guidance.',
+    takeLabel: 'Take 1 (Earlier)'
+  },
+  {
+    id: 'place_1_5',
+    surahNumber: 1,
+    surahName: 'Al-Fatihah',
+    ayahNumber: 5,
+    ayahTextArabic: 'إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ',
+    wordArabic: 'إِيَّاكَ',
+    userRecitationText: 'Iyyāka na‘budu wa-iyyāka nasta‘īn',
+    timestamp: 'Yesterday, 4:32 PM',
+    durationSeconds: 3.5,
+    status: 'good',
+    explanation: 'Clean articulation of Shaddah on Ya and clear letters.',
+    takeLabel: 'Recorded Ayah'
+  },
+  {
+    id: 'place_1_4',
+    surahNumber: 1,
+    surahName: 'Al-Fatihah',
+    ayahNumber: 4,
+    ayahTextArabic: 'مَٰلِكِ يَوْمِ ٱلدِّينِ',
+    wordArabic: 'مَٰلِكِ',
+    userRecitationText: 'Māliki yawmi-d-dīn (Kasrah on Kaaf)',
+    timestamp: 'Yesterday, 4:28 PM',
+    durationSeconds: 3.1,
+    status: 'mastered',
+    mistakeId: 'm-4',
+    mistakeType: 'wrong_harakah',
+    explanation: 'Mastered: pronounced with crisp Kasrah on Kaaf (Māliki).',
+    takeLabel: 'Mastered Take'
+  },
+  {
+    id: 'place_1_2',
+    surahNumber: 1,
+    surahName: 'Al-Fatihah',
+    ayahNumber: 2,
+    ayahTextArabic: 'ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ',
+    wordArabic: 'ٱلْحَمْدُ',
+    userRecitationText: 'Al-ḥamdu lillāhi rabbi-l-‘ālamīn',
+    timestamp: '2 days ago',
+    durationSeconds: 3.8,
+    status: 'mastered',
+    explanation: 'Fluent recitation with balanced Dammah on Daal.',
+    takeLabel: 'Recorded Ayah'
+  },
+  {
+    id: 'place_1_1',
+    surahNumber: 1,
+    surahName: 'Al-Fatihah',
+    ayahNumber: 1,
+    ayahTextArabic: 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ',
+    wordArabic: 'بِسْمِ ٱللَّهِ',
+    userRecitationText: 'Bismi-llāhi-r-raḥmāni-r-raḥīm',
+    timestamp: '2 days ago',
+    durationSeconds: 3.6,
+    status: 'mastered',
+    explanation: 'Mastered Basmalah with warm melodic cadence.',
+    takeLabel: 'Recorded Ayah'
+  },
+  {
+    id: 'place_67_1',
+    surahNumber: 67,
+    surahName: 'Al-Mulk',
+    ayahNumber: 1,
+    ayahTextArabic: 'تَبَٰرَكَ ٱلَّذِى بِيَدِهِ ٱلْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَىْءٍۢ قَدِيرٌ',
+    wordArabic: 'شَىْءٍۢ قَدِيرٌ',
+    userRecitationText: 'shay-in Qadīr (Clear Izhar without Ghunnah)',
+    timestamp: 'Yesterday, 8:38 PM',
+    durationSeconds: 4.8,
+    status: 'needs_practice',
+    mistakeId: 'm-2',
+    mistakeType: 'tajweed_slip',
+    tajweedRule: 'Ikhfa',
+    explanation: 'Ikhfa Haqiqi with Tanween before Qaf.',
+    takeLabel: 'Recorded Take'
+  },
+  {
+    id: 'place_67_2',
+    surahNumber: 67,
+    surahName: 'Al-Mulk',
+    ayahNumber: 2,
+    ayahTextArabic: 'ٱلَّذِى خَلَقَ ٱلْمَوْتَ وَٱلْحَيَوٰةَ لِيَبْلُوَكُمْ أَيُّكُمْ أَحْسَنُ عَمَلًا',
+    wordArabic: 'لِيَبْلُوَكُمْ',
+    userRecitationText: 'li-yab-luwakum (Muffled Baa without echo)',
+    timestamp: 'Yesterday, 8:41 PM',
+    durationSeconds: 4.2,
+    status: 'needs_practice',
+    mistakeId: 'm-3',
+    mistakeType: 'tajweed_slip',
+    tajweedRule: 'Qalqalah',
+    explanation: 'Letter Baa requires gentle Qalqalah bounce on Sukoon.',
+    takeLabel: 'Recorded Take'
+  },
+  {
+    id: 'place_78_1',
+    surahNumber: 78,
+    surahName: 'An-Naba',
+    ayahNumber: 1,
+    ayahTextArabic: 'عَمَّ يَتَسَآءَلُونَ',
+    wordArabic: 'عَمَّ',
+    userRecitationText: '‘Amma yatasā’alūn (Quick Meem)',
+    timestamp: '3 days ago',
+    durationSeconds: 3.2,
+    status: 'needs_practice',
+    tajweedRule: 'Ghunnah',
+    explanation: 'Hold 2-count nasal Ghunnah on Meem Mushaddadah.',
+    takeLabel: 'Recorded Take'
+  },
+  {
+    id: 'place_18_1',
+    surahNumber: 18,
+    surahName: 'Al-Kahf',
+    ayahNumber: 1,
+    ayahTextArabic: 'ٱلْحَمْدُ لِلَّهِ ٱلَّذِىٓ أَنزَلَ عَلَىٰ عَبْدِهِ ٱلْكِتَٰبَ وَلَمْ يَجْعَل لَّهُۥ عِوَجَاۜ',
+    wordArabic: 'ٱلْحَمْدُ لِلَّهِ',
+    userRecitationText: 'Al-ḥamdu lillāhi-lladhī anzala ‘alā ‘abdihi-l-kitāb',
+    timestamp: '4 days ago',
+    durationSeconds: 5.6,
+    status: 'mastered',
+    explanation: 'Smooth and beautiful opening recitation of Surah Al-Kahf.',
+    takeLabel: 'Recorded Ayah'
+  }
+];
+
 class AudioRecordingService {
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
@@ -30,6 +207,106 @@ class AudioRecordingService {
   // Cached clips by ID (mistake ID or `surah_ayah`)
   private recordedClips = new Map<string, RecordedVoiceClip>();
   private lastRecordedClip: RecordedVoiceClip | null = null;
+
+  // Recited places repository
+  private recitedPlaces: RecitedPlaceRecord[] = [];
+
+  constructor() {
+    this.loadRecitedPlaces();
+  }
+
+  private loadRecitedPlaces() {
+    if (typeof window === 'undefined') {
+      this.recitedPlaces = [...DEFAULT_SEEDED_PLACES];
+      return;
+    }
+    try {
+      const stored = localStorage.getItem('tadreeb_recited_places_v2');
+      if (stored) {
+        const parsed = JSON.parse(stored) as RecitedPlaceRecord[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.recitedPlaces = parsed;
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    this.recitedPlaces = [...DEFAULT_SEEDED_PLACES];
+    this.persistRecitedPlaces();
+  }
+
+  private persistRecitedPlaces() {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('tadreeb_recited_places_v2', JSON.stringify(this.recitedPlaces.slice(0, 100)));
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * Save a newly recited place or take
+   */
+  public saveRecitedPlace(place: RecitedPlaceRecord): void {
+    // Prepend or update
+    const existingIndex = this.recitedPlaces.findIndex(p => p.id === place.id);
+    if (existingIndex >= 0) {
+      this.recitedPlaces[existingIndex] = place;
+    } else {
+      this.recitedPlaces.unshift(place);
+    }
+    this.persistRecitedPlaces();
+  }
+
+  /**
+   * Get all recited places, optionally filtered by Surah
+   */
+  public getRecitedPlaces(surahNumber?: number): RecitedPlaceRecord[] {
+    if (!surahNumber) {
+      return [...this.recitedPlaces];
+    }
+    return this.recitedPlaces.filter(p => p.surahNumber === surahNumber);
+  }
+
+  /**
+   * Get summary of all Surahs that have recited places
+   */
+  public getRecitedSurahsSummary(): Array<{
+    surahNumber: number;
+    surahName: string;
+    totalPlaces: number;
+    needsPracticeCount: number;
+    latestTimestamp: string;
+  }> {
+    const map = new Map<number, {
+      surahNumber: number;
+      surahName: string;
+      totalPlaces: number;
+      needsPracticeCount: number;
+      latestTimestamp: string;
+    }>();
+
+    for (const place of this.recitedPlaces) {
+      const existing = map.get(place.surahNumber);
+      if (existing) {
+        existing.totalPlaces++;
+        if (place.status === 'needs_practice') {
+          existing.needsPracticeCount++;
+        }
+      } else {
+        map.set(place.surahNumber, {
+          surahNumber: place.surahNumber,
+          surahName: place.surahName,
+          totalPlaces: 1,
+          needsPracticeCount: place.status === 'needs_practice' ? 1 : 0,
+          latestTimestamp: place.timestamp
+        });
+      }
+    }
+
+    return Array.from(map.values());
+  }
 
   /**
    * Check if MediaRecorder is supported in current environment

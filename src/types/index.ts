@@ -10,8 +10,7 @@ export type ScreenId =
   | 'audio-settings'
   | 'profile'
   | 'onboarding'
-  | 'auth'
-  | 'design-system';
+  | 'auth';
 
 export type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password' | 'verify-email' | 'link-account';
 
@@ -76,6 +75,7 @@ export interface TajweedMistake {
   surahNumber: number;
   surahName: string;
   ayahNumber: number;
+  ayahTextArabic?: string;
   wordIndex: number;
   wordArabic: string;
   expectedRecitation: string;
@@ -186,6 +186,10 @@ export interface VoiceCompareReport {
     improvementSummary: string;
     improvementSummaryArabic: string;
   };
+  userAudioUrl?: string;
+  referenceAudioUrl?: string;
+  userDuration?: number;
+  scholarDuration?: number;
 }
 
 export interface WordToken {
@@ -264,4 +268,29 @@ export interface RecitationHangState {
   isRepeatingAudio: boolean;
   repeatCount: number;
   mistakeRecord?: TajweedMistake | null;
+}
+
+export interface SurahCompletionCertificate {
+  id: string;
+  surahNumber: number;
+  surahNameArabic: string;
+  surahNameEnglish: string;
+  surahTranslation: string;
+  numberOfAyahs: number;
+  juzNumber: number;
+  revelationType: 'Meccan' | 'Medinan';
+  studentName: string;
+  accuracyPercentage: number; // e.g. 98.6
+  harakatAccuracy: number; // e.g. 100
+  tajweedAccuracy: number; // e.g. 97.8
+  grade: 'Mumtaz (Highest Distinction)' | 'Jayyid Jiddan (Very Good)' | 'Jayyid (Good)';
+  gradeArabic: 'مُمْتَاز مع مرتبة الشرف' | 'جَيِّد جِدّاً' | 'جَيِّد';
+  riwayah: string; // e.g. "حفص عن عاصم من طريق الشاطبية"
+  riwayahEnglish: string; // "Hafs 'an 'Asim via Shatibiyyah"
+  completedAt: string; // Formatted date string
+  completedDateIso: string;
+  certificateSerialNumber: string; // e.g. "TDRB-2026-SRH001-9842"
+  verifiedBy: string;
+  verifiedByArabic: string;
+  scholarBenchmark: string;
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Direction, UserProfile, TajweedMistake } from '../../types';
 import { AchievementsSection } from '../achievements/AchievementsSection';
+import { SurahCertificatesSection } from '../certificates/SurahCertificatesSection';
 import {
   BarChart2,
   TrendingUp,
@@ -12,7 +13,8 @@ import {
   CheckCircle2,
   Activity,
   Trophy,
-  Medal
+  Medal,
+  Printer
 } from 'lucide-react';
 
 interface ProgressAnalyticsScreenProps {
@@ -27,7 +29,7 @@ export const ProgressAnalyticsScreen: React.FC<ProgressAnalyticsScreenProps> = (
   mistakes
 }) => {
   const isRtl = direction === 'rtl';
-  const [activeTab, setActiveTab] = useState<'all' | 'badges' | 'practice' | 'phonetics'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'certificates' | 'badges' | 'practice' | 'phonetics'>('all');
 
   // Weekly recitation minutes data
   const weeklyData = [
@@ -97,6 +99,7 @@ export const ProgressAnalyticsScreen: React.FC<ProgressAnalyticsScreenProps> = (
         <div className="flex items-center gap-1.5 bg-[#F5F2ED] dark:bg-[#172526] p-1 rounded-2xl border border-[#E8E2D6] dark:border-[#232E2F] overflow-x-auto w-fit">
           {[
             { id: 'all', label: isRtl ? 'الكل' : 'All Views' },
+            { id: 'certificates', label: isRtl ? 'شهادات الإتقان' : 'Certificates', icon: Award },
             { id: 'badges', label: isRtl ? 'الأوسمة' : 'Badges & Milestones', icon: Medal },
             { id: 'practice', label: isRtl ? 'الورد والخريطة' : 'Practice & Juz Map', icon: BarChart2 },
             { id: 'phonetics', label: isRtl ? 'دقة التجويد' : 'Phonetics', icon: Activity }
@@ -158,18 +161,32 @@ export const ProgressAnalyticsScreen: React.FC<ProgressAnalyticsScreenProps> = (
           </span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#FDFBF7] dark:bg-[#122021] border border-[#E8E2D6] dark:border-[#232E2F] shadow-sm">
-          <span className="text-[11px] text-[#8E9B98] uppercase tracking-wider font-semibold">
-            {isRtl ? 'دقة التلاوة الكلية' : 'Overall Accuracy'}
-          </span>
+        <div
+          onClick={() => setActiveTab('certificates')}
+          className="p-4 rounded-2xl bg-[#FDFBF7] dark:bg-[#122021] border border-[#E8E2D6] dark:border-[#232E2F] hover:border-[#C5A059] transition-colors cursor-pointer shadow-sm group"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-[#8E9B98] uppercase tracking-wider font-semibold">
+              {isRtl ? 'دقة التلاوة الكلية' : 'Overall Accuracy'}
+            </span>
+            <Printer className="w-3.5 h-3.5 text-[#C5A059] opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
           <p className="text-2xl font-bold text-[#1A4D4E] dark:text-[#E8ECE9] mt-1">96.4%</p>
-          <span className="text-[10px] text-[#C5A059] font-semibold">
-            {isRtl ? 'وسام متقن التجويد محقق ✓' : 'Tajweed Perfectionist ✓'}
+          <span className="text-[10px] text-[#C5A059] font-semibold flex items-center gap-1">
+            {isRtl ? 'شهادات إتقان جاهزة للطباعة 🖨️' : 'Printable Certificates Ready 🖨️'}
           </span>
         </div>
       </div>
 
-      {/* PRIMARY SECTION: ACHIEVEMENT SYSTEM & BADGES */}
+      {/* SECTION 1: SURAH COMPLETION & PRINTABLE CERTIFICATES */}
+      {(activeTab === 'all' || activeTab === 'certificates') && (
+        <SurahCertificatesSection
+          user={user}
+          direction={direction}
+        />
+      )}
+
+      {/* SECTION 2: ACHIEVEMENT SYSTEM & BADGES */}
       {(activeTab === 'all' || activeTab === 'badges') && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">

@@ -524,6 +524,63 @@ class UserCloudService {
     }
   }
 
+  /**
+   * Generates and dispatches a verified email login/activation link
+   */
+  public sendEmailVerificationLink(email: string, fullName?: string): { token: string; linkUrl: string; expiresAt: number } {
+    const cleanEmail = sanitizeString(email.toLowerCase(), 120);
+    const token = 'vtok_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now().toString(36);
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes validity
+    const linkUrl = `${window.location.origin}${window.location.pathname}?verify_token=${token}&email=${encodeURIComponent(cleanEmail)}`;
+
+    const linkData = {
+      token,
+      email: cleanEmail,
+      fullName: fullName || '',
+      linkUrl,
+      expiresAt,
+      timestamp: Date.now()
+    };
+
+    try {
+      sessionStorage.setItem(`tadreeb_email_link_${cleanEmail}`, JSON.stringify(linkData));
+      sessionStorage.setItem(`tadreeb_token_${token}`, JSON.stringify(linkData));
+    } catch {
+      // fallback
+    }
+
+    return { token, linkUrl, expiresAt };
+  }
+
+  /**
+   * Verifies an email link token
+   */
+  public verifyEmailVerificationLink(email: string, token?: string): { success: boolean; fullName?: string; message?: string } {
+    const cleanEmail = sanitizeString(email.toLowerCase(), 120);
+    try {
+      const stored = sessionStorage.getItem(`tadreeb_email_link_${cleanEmail}`);
+      if (!stored) {
+        return { success: false, message: 'No verification link request found for this email.' };
+      }
+      const parsed = JSON.parse(stored) as { token: string; email: string; fullName: string; expiresAt: number };
+      if (Date.now() > parsed.expiresAt) {
+        sessionStorage.removeItem(`tadreeb_email_link_${cleanEmail}`);
+        return { success: false, message: 'Verification link has expired. Please request a new link.' };
+      }
+      if (token && parsed.token !== token.trim()) {
+        return { success: false, message: 'Invalid verification token.' };
+      }
+      // Consume link
+      sessionStorage.removeItem(`tadreeb_email_link_${cleanEmail}`);
+      if (parsed.token) {
+        sessionStorage.removeItem(`tadreeb_token_${parsed.token}`);
+      }
+      return { success: true, fullName: parsed.fullName };
+    } catch {
+      return { success: false, message: 'Link verification error.' };
+    }
+  }
+
   private saveLocalProfile(profile: UserProfile): void {
     try {
       localStorage.setItem(`tadreeb_profile_${profile.id}`, JSON.stringify(profile));

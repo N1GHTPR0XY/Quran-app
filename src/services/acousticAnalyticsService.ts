@@ -216,14 +216,14 @@ class AcousticAnalyticsService {
     const cachedFeatures = userAudio ? this.audioBufferCache.get(userAudio) : undefined;
 
     // Execute the deterministic acoustic scoring algorithm
-    const report = this.computeComparisonScore(mistake, reciter, cachedFeatures, isReRecordAttempt);
+    const report = this.computeComparisonScore(mistake, reciter, cachedFeatures, isReRecordAttempt, userAudio, refAudioUrl);
 
     // If audio is available but not yet decoded into features, trigger background decode to refine subsequent calls
     if (userAudio && !cachedFeatures) {
       this.decodeAudio(userAudio).then((features) => {
         if (features) {
           // Recompute and update cache with real waveform metrics
-          const refinedReport = this.computeComparisonScore(mistake, reciter, features, isReRecordAttempt);
+          const refinedReport = this.computeComparisonScore(mistake, reciter, features, isReRecordAttempt, userAudio, refAudioUrl);
           this.reportsCache.set(reportKey, refinedReport);
         }
       }).catch(() => {});
@@ -248,7 +248,7 @@ class AcousticAnalyticsService {
     if (userAudio) {
       features = await this.decodeAudio(userAudio);
     }
-    const report = this.computeComparisonScore(mistake, reciter, features || undefined, isReRecordAttempt);
+    const report = this.computeComparisonScore(mistake, reciter, features || undefined, isReRecordAttempt, userAudio, refAudioUrl);
     const reportKey = `${mistake.id}_${reciter.id}_${isReRecordAttempt ? 'rerecord' : 'initial'}_${mistake.mastered ? 'mastered' : 'unmastered'}`;
     this.reportsCache.set(reportKey, report);
     return report;
@@ -262,7 +262,9 @@ class AcousticAnalyticsService {
     mistake: TajweedMistake,
     reciter: ReciterInfo,
     audioFeatures?: DecodedAudioFeatures,
-    isReRecordAttempt: boolean = false
+    isReRecordAttempt: boolean = false,
+    userAudioUrl?: string,
+    refAudioUrl?: string
   ): VoiceCompareReport {
     const isMastered = Boolean(mistake.mastered || isReRecordAttempt);
     const mistakeType = mistake.mistakeType;
@@ -727,7 +729,11 @@ class AcousticAnalyticsService {
         deltaScore,
         improvementSummary,
         improvementSummaryArabic
-      }
+      },
+      userAudioUrl,
+      referenceAudioUrl: refAudioUrl,
+      userDuration: mistake.mistakeType === 'tajweed_slip' ? 2.5 : 3.8,
+      scholarDuration: mistake.mistakeType === 'tajweed_slip' ? 5.5 : 4.0
     };
   }
 

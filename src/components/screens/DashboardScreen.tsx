@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Direction, ScreenId, UserProfile } from '../../types';
 import { POPULAR_SURAHS, INITIAL_MISTAKES_REVIEW } from '../../data/quranData';
+import { CircularProgress } from '../common/CircularProgress';
 import {
   Mic,
   Flame,
@@ -16,7 +17,11 @@ import {
   CloudCheck,
   ShieldAlert,
   Trophy,
-  Award
+  Award,
+  Target,
+  CheckCircle2,
+  TrendingUp,
+  Percent
 } from 'lucide-react';
 
 interface DashboardScreenProps {
@@ -33,8 +38,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenAuth
 }) => {
   const isRtl = direction === 'rtl';
-  const featuredSurah = POPULAR_SURAHS[1]; // Surah Al-Mulk
+  const [selectedTargetSurahNumber, setSelectedTargetSurahNumber] = useState<number>(67); // Default: Surah Al-Mulk (67)
+  const activeTargetSurah = POPULAR_SURAHS.find(s => s.number === selectedTargetSurahNumber) || POPULAR_SURAHS[1];
   const unreviewedMistakesCount = INITIAL_MISTAKES_REVIEW.filter(m => !m.mastered).length;
+
+  const targetMasteredAyahs = Math.round((activeTargetSurah.memorizationProgress / 100) * activeTargetSurah.numberOfAyahs);
+  const remainingAyahs = Math.max(0, activeTargetSurah.numberOfAyahs - targetMasteredAyahs);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-8 animate-fadeIn pb-24">
@@ -123,7 +132,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </div>
 
-      {/* HERO SECTION: TODAY'S WIRD & RESUME RECITE CTA */}
+      {/* HERO SECTION: USER'S TARGET SURAH WITH CIRCULAR PROGRESS INDICATOR */}
       <div className="relative rounded-3xl bg-gradient-to-br from-[#1A4D4E] via-[#143E3F] to-[#0E3B3C] text-white p-6 sm:p-8 shadow-xl overflow-hidden border border-[#C5A059]/40">
         {/* Background Islamic Arabesque watermark */}
         <div className="absolute top-0 right-0 w-80 h-80 opacity-10 pointer-events-none transform translate-x-16 -translate-y-16">
@@ -134,54 +143,260 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </svg>
         </div>
 
-        <div className="relative z-10 max-w-xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-[#C5A059]/40 text-xs text-[#C5A059] font-medium mb-3">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{isRtl ? 'ورد التسميع اليومي' : "Today's Core Recitation Task"}</span>
-          </div>
-
-          <div className="flex items-baseline gap-3 mb-2">
-            <h2 className="font-arabic text-3xl sm:text-4xl font-bold text-[#FDFBF7]">
-              سُورَةُ المُلْك
-            </h2>
-            <span className="text-sm font-medium text-[#C5A059] tracking-wide">
-              Ayahs 1 – 10 (Revision & Retention)
+        {/* Target Surah Switcher Tabs */}
+        <div className="relative z-10 mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#C5A059] animate-pulse" />
+            <span className="text-xs uppercase tracking-wider text-[#C5A059] font-bold">
+              {isRtl ? 'السورة المستهدفة الحالية للحفظ' : 'Active Target Surah for Hifz'}
             </span>
           </div>
 
-          <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed mb-6 max-w-md">
-            {isRtl
-              ? 'سمّع الآيات غيباً بصوتك. يستمع التطبيق كلمة بكلمة ويتوقف بلطف عند أدنى خطأ حركي أو تجويدي لتصحيحه دون أي إحراج.'
-              : 'Recite aloud from memory. Tadreeb follows along word by word. If a harakah or tajweed rule slips, it pauses with gentle harmonic audio, plays the correct qari pronunciation, and lets you retry.'}
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3.5">
-            <button
-              onClick={() => onNavigate('recitation')}
-              className="px-6 py-3.5 rounded-2xl bg-[#C5A059] hover:bg-[#b08e4c] text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2.5 cursor-pointer transform hover:-translate-y-0.5"
-            >
-              <Mic className="w-5 h-5 text-white" />
-              <span>{isRtl ? 'بدء التسميع الصوتي الآن' : 'Start Vocal Recitation'}</span>
-            </button>
-
-            <button
-              onClick={() => onNavigate('library')}
-              className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-sm text-white text-xs font-medium border border-white/20 transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <BookOpen className="w-4 h-4 text-[#C5A059]" />
-              <span>{isRtl ? 'استعراض المصحف' : 'Browse Surah'}</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-1.5 bg-black/20 p-1 rounded-2xl backdrop-blur-sm border border-white/10">
+            {POPULAR_SURAHS.slice(0, 4).map(surah => {
+              const isSelected = surah.number === activeTargetSurah.number;
+              return (
+                <button
+                  key={surah.number}
+                  onClick={() => setSelectedTargetSurahNumber(surah.number)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#C5A059] text-white font-bold shadow-sm'
+                      : 'text-neutral-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <span className="font-arabic">{surah.nameArabic}</span>
+                  <span className="text-[10px] opacity-75 font-mono">({surah.memorizationProgress}%)</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Progress Bar inside Card */}
-        <div className="mt-6 pt-5 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-neutral-300">{isRtl ? 'نسبة إتقان سورة الملك:' : 'Surah Al-Mulk Mastery:'}</span>
-            <span className="font-bold text-[#C5A059]">72% (22/30 Ayahs)</span>
+        <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8">
+          {/* Left Text & Actions */}
+          <div className="max-w-xl flex-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-[#C5A059]/40 text-xs text-[#C5A059] font-medium mb-3">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{isRtl ? 'ورد التسميع اليومي النشط' : "Active Daily Recitation Target"}</span>
+            </div>
+
+            <div className="flex items-baseline gap-3 mb-2">
+              <h2 className="font-arabic text-3xl sm:text-4xl font-bold text-[#FDFBF7]">
+                {activeTargetSurah.nameArabic}
+              </h2>
+              <span className="text-sm font-medium text-[#C5A059] tracking-wide">
+                {activeTargetSurah.nameEnglish} • {activeTargetSurah.nameTranslation}
+              </span>
+            </div>
+
+            <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed mb-6 max-w-md">
+              {isRtl
+                ? `سمّع آيات سورة ${activeTargetSurah.nameArabic} (${activeTargetSurah.numberOfAyahs} آية) بصوتك. يستمع الذكاء الاصطناعي بدقة تجويدية وحركية تامة لتثبيت الحفظ في الذاكرة طويلة المدى.`
+                : `Recite Surah ${activeTargetSurah.nameEnglish} (${activeTargetSurah.numberOfAyahs} Ayahs) aloud. The speech engine listens word by word, correcting harakah and tajweed slips in real time.`}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3.5">
+              <button
+                onClick={() => onNavigate('recitation')}
+                className="px-6 py-3.5 rounded-2xl bg-[#C5A059] hover:bg-[#b08e4c] text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2.5 cursor-pointer transform hover:-translate-y-0.5"
+              >
+                <Mic className="w-5 h-5 text-white" />
+                <span>{isRtl ? 'بدء التسميع الصوتي' : 'Start Vocal Recitation'}</span>
+              </button>
+
+              <button
+                onClick={() => onNavigate('library')}
+                className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-sm text-white text-xs font-medium border border-white/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <BookOpen className="w-4 h-4 text-[#C5A059]" />
+                <span>{isRtl ? 'استعراض المصحف' : 'Browse Surah'}</span>
+              </button>
+            </div>
           </div>
-          <div className="w-full sm:w-48 bg-white/15 h-2 rounded-full overflow-hidden">
-            <div className="bg-[#C5A059] h-full w-[72%] rounded-full" />
+
+          {/* Right Circular Progress Showcase Card */}
+          <div className="flex flex-col sm:flex-row items-center gap-6 p-5 rounded-3xl bg-black/25 backdrop-blur-md border border-[#C5A059]/40 shadow-inner w-full lg:w-auto">
+            {/* Primary Circular Progress Ring */}
+            <div className="relative flex flex-col items-center">
+              <CircularProgress
+                value={activeTargetSurah.memorizationProgress}
+                size={144}
+                strokeWidth={11}
+                gradient={{
+                  id: `target-progress-${activeTargetSurah.number}`,
+                  from: activeTargetSurah.memorizationProgress === 100 ? '#72D6A5' : '#C5A059',
+                  to: activeTargetSurah.memorizationProgress === 100 ? '#4EAE7B' : '#F6E0A4'
+                }}
+                trackColor="rgba(255,255,255,0.12)"
+                centerText={
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <span className="text-3xl font-extrabold tracking-tight text-white font-mono">
+                      {activeTargetSurah.memorizationProgress}%
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#C5A059] tracking-wider uppercase mt-0.5">
+                      {isRtl ? 'نسبة الإتقان' : 'Completed'}
+                    </span>
+                  </div>
+                }
+              />
+              <span className="mt-2 text-xs font-bold text-neutral-200">
+                {targetMasteredAyahs} / {activeTargetSurah.numberOfAyahs} {isRtl ? 'آية متقنة' : 'Ayahs'}
+              </span>
+            </div>
+
+            {/* Target Breakdown & Milestones */}
+            <div className="space-y-3 min-w-[190px] border-t sm:border-t-0 sm:border-l sm:border-white/15 pt-3 sm:pt-0 sm:pl-5 border-white/10 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-neutral-400">{isRtl ? 'حالة الحفظ:' : 'Status:'}</span>
+                <span className={`font-bold px-2 py-0.5 rounded-full text-[11px] ${
+                  activeTargetSurah.memorizationProgress === 100
+                    ? 'bg-[#72D6A5]/20 text-[#72D6A5] border border-[#72D6A5]/30'
+                    : 'bg-[#C5A059]/20 text-[#C5A059] border border-[#C5A059]/30'
+                }`}>
+                  {activeTargetSurah.memorizationProgress === 100
+                    ? (isRtl ? 'مكتملة بالكامل' : 'Fully Mastered')
+                    : (isRtl ? `${remainingAyahs} آيات متبقية` : `${remainingAyahs} Ayahs Left`)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-neutral-400">{isRtl ? 'تثبيت الذاكرة:' : 'Retention:'}</span>
+                <span className="font-bold text-[#FDFBF7]">
+                  {activeTargetSurah.memorizationProgress >= 70 ? '88% (High)' : '65% (Building)'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-neutral-400">{isRtl ? 'دقة التجويد:' : 'Tajweed Score:'}</span>
+                <span className="font-bold text-[#72D6A5]">96% (Hafs)</span>
+              </div>
+
+              <div className="pt-2 border-t border-white/10">
+                <div className="flex justify-between text-[11px] text-neutral-400 mb-1">
+                  <span>{isRtl ? 'هدف اليوم:' : "Today's Wird:"}</span>
+                  <span className="text-[#C5A059] font-bold">10 / 10 Ayahs</span>
+                </div>
+                <div className="w-full bg-white/15 h-1.5 rounded-full overflow-hidden">
+                  <div className="bg-[#C5A059] h-full w-full rounded-full" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TARGET SURAH ANALYTICS STRIP: CIRCULAR PROGRESS GAUGES */}
+      <div className="p-5 rounded-3xl bg-[#FDFBF7] dark:bg-[#122021] border border-[#E8E2D6] dark:border-[#232E2F] shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-[#C5A059]" />
+            <h3 className="font-bold text-sm text-[#1A4D4E] dark:text-[#E8ECE9]">
+              {isRtl ? `مؤشرات إتقان سورة ${activeTargetSurah.nameArabic}` : `Mastery Gauges for Surah ${activeTargetSurah.nameEnglish}`}
+            </h3>
+          </div>
+          <span className="text-xs text-[#6F7D7B] dark:text-[#9AA5A3]">
+            {isRtl ? 'تحليل لحظي لجودة الحفظ الصوتي والتجويدي' : 'Real-time vocal recall & acoustic precision'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {/* Gauge 1: Surah Memorization Completion */}
+          <div className="p-3.5 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] flex flex-col items-center text-center">
+            <CircularProgress
+              value={activeTargetSurah.memorizationProgress}
+              size={76}
+              strokeWidth={7}
+              color={activeTargetSurah.memorizationProgress === 100 ? '#72D6A5' : '#C5A059'}
+              trackColor="currentColor"
+              className="text-[#E8E2D6] dark:text-[#232E2F] mb-2"
+              centerText={
+                <div className="flex flex-col items-center">
+                  <span className="text-sm font-extrabold text-[#1A4D4E] dark:text-[#E8ECE9] font-mono leading-none">
+                    {activeTargetSurah.memorizationProgress}%
+                  </span>
+                </div>
+              }
+            />
+            <span className="font-bold text-xs text-[#1A4D4E] dark:text-[#E8ECE9]">
+              {isRtl ? 'نسبة حفظ السورة' : 'Surah Completion'}
+            </span>
+            <span className="text-[11px] text-[#6F7D7B] dark:text-[#9AA5A3] mt-0.5">
+              {targetMasteredAyahs} / {activeTargetSurah.numberOfAyahs} {isRtl ? 'آيات' : 'Ayahs'}
+            </span>
+          </div>
+
+          {/* Gauge 2: Tajweed Precision */}
+          <div className="p-3.5 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] flex flex-col items-center text-center">
+            <CircularProgress
+              value={94}
+              size={76}
+              strokeWidth={7}
+              color="#27827E"
+              trackColor="currentColor"
+              className="text-[#E8E2D6] dark:text-[#232E2F] mb-2"
+              centerText={
+                <div className="flex flex-col items-center">
+                  <span className="text-sm font-extrabold text-[#1A4D4E] dark:text-[#E8ECE9] font-mono leading-none">
+                    94%
+                  </span>
+                </div>
+              }
+            />
+            <span className="font-bold text-xs text-[#1A4D4E] dark:text-[#E8ECE9]">
+              {isRtl ? 'دقة التجويد' : 'Tajweed Accuracy'}
+            </span>
+            <span className="text-[11px] text-[#6F7D7B] dark:text-[#9AA5A3] mt-0.5">
+              {isRtl ? 'مخارج وأحكام متقنة' : 'Phonetic Accuracy'}
+            </span>
+          </div>
+
+          {/* Gauge 3: Retention Strength */}
+          <div className="p-3.5 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] flex flex-col items-center text-center">
+            <CircularProgress
+              value={activeTargetSurah.memorizationProgress >= 70 ? 88 : 65}
+              size={76}
+              strokeWidth={7}
+              color={activeTargetSurah.memorizationProgress >= 70 ? '#72D6A5' : '#D96E54'}
+              trackColor="currentColor"
+              className="text-[#E8E2D6] dark:text-[#232E2F] mb-2"
+              centerText={
+                <div className="flex flex-col items-center">
+                  <span className="text-sm font-extrabold text-[#1A4D4E] dark:text-[#E8ECE9] font-mono leading-none">
+                    {activeTargetSurah.memorizationProgress >= 70 ? '88%' : '65%'}
+                  </span>
+                </div>
+              }
+            />
+            <span className="font-bold text-xs text-[#1A4D4E] dark:text-[#E8ECE9]">
+              {isRtl ? 'ثبات الذاكرة' : 'Retention Anchor'}
+            </span>
+            <span className="text-[11px] text-[#6F7D7B] dark:text-[#9AA5A3] mt-0.5">
+              {isRtl ? 'التكرار المتباعد' : 'Spaced Memory'}
+            </span>
+          </div>
+
+          {/* Gauge 4: Daily Goal Pace */}
+          <div className="p-3.5 rounded-2xl bg-[#F5F2ED] dark:bg-[#172526] border border-[#E8E2D6] dark:border-[#232E2F] flex flex-col items-center text-center">
+            <CircularProgress
+              value={100}
+              size={76}
+              strokeWidth={7}
+              color="#C5A059"
+              trackColor="currentColor"
+              className="text-[#E8E2D6] dark:text-[#232E2F] mb-2"
+              centerText={
+                <div className="flex flex-col items-center">
+                  <CheckCircle2 className="w-5 h-5 text-[#C5A059]" />
+                </div>
+              }
+            />
+            <span className="font-bold text-xs text-[#1A4D4E] dark:text-[#E8ECE9]">
+              {isRtl ? 'ورد اليوم' : 'Daily Wird'}
+            </span>
+            <span className="text-[11px] text-[#6F7D7B] dark:text-[#9AA5A3] mt-0.5">
+              10 / 10 {isRtl ? 'آيات منجزة' : 'Ayahs Done'}
+            </span>
           </div>
         </div>
       </div>
@@ -348,36 +563,86 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {POPULAR_SURAHS.slice(0, 4).map(surah => (
-            <div
-              key={surah.number}
-              onClick={() => onNavigate('recitation')}
-              className="p-4 rounded-2xl bg-[#FDFBF7] dark:bg-[#122021] border border-[#E8E2D6] dark:border-[#232E2F] hover:border-[#C5A059] transition-all shadow-sm hover:shadow-md cursor-pointer group"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="w-7 h-7 rounded-lg bg-[#1A4D4E]/10 dark:bg-[#27827E]/20 text-[#1A4D4E] dark:text-[#72D6A5] text-xs font-bold flex items-center justify-center">
-                  {surah.number}
+          {POPULAR_SURAHS.slice(0, 4).map(surah => {
+            const isSelected = surah.number === activeTargetSurah.number;
+            const masteredAyahs = Math.round((surah.memorizationProgress / 100) * surah.numberOfAyahs);
+            const isComplete = surah.memorizationProgress === 100;
+
+            return (
+              <div
+                key={surah.number}
+                onClick={() => setSelectedTargetSurahNumber(surah.number)}
+                className={`p-4 rounded-2xl bg-[#FDFBF7] dark:bg-[#122021] border transition-all shadow-sm hover:shadow-md cursor-pointer group flex flex-col justify-between ${
+                  isSelected
+                    ? 'border-[#C5A059] ring-2 ring-[#C5A059]/30 dark:ring-[#C5A059]/20'
+                    : 'border-[#E8E2D6] dark:border-[#232E2F] hover:border-[#C5A059]/60'
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-7 h-7 rounded-lg bg-[#1A4D4E]/10 dark:bg-[#27827E]/20 text-[#1A4D4E] dark:text-[#72D6A5] text-xs font-bold flex items-center justify-center">
+                        {surah.number}
+                      </div>
+                      {isSelected && (
+                        <span className="text-[10px] uppercase font-bold text-[#C5A059] bg-[#C5A059]/15 px-1.5 py-0.5 rounded-md">
+                          {isRtl ? 'المستهدفة' : 'Target'}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-arabic text-lg font-bold text-[#1A4D4E] dark:text-[#E8ECE9] group-hover:text-[#C5A059] transition-colors">
+                      {surah.nameArabic}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-[#5F6E6C] dark:text-[#A6B2AF]">
+                    <p className="font-semibold text-[#1A4D4E] dark:text-[#E8ECE9]">{surah.nameEnglish}</p>
+                    <p className="text-[11px] text-[#8E9B98]">{surah.nameTranslation} • {surah.numberOfAyahs} Ayahs</p>
+                  </div>
                 </div>
-                <span className="font-arabic text-lg font-bold text-[#1A4D4E] dark:text-[#E8ECE9] group-hover:text-[#C5A059] transition-colors">
-                  {surah.nameArabic}
-                </span>
-              </div>
 
-              <div className="text-xs text-[#5F6E6C] dark:text-[#A6B2AF]">
-                <p className="font-semibold text-[#1A4D4E] dark:text-[#E8ECE9]">{surah.nameEnglish}</p>
-                <p className="text-[11px] text-[#8E9B98]">{surah.nameTranslation} • {surah.numberOfAyahs} Ayahs</p>
-              </div>
+                {/* Circular Progress Indicator for this target Surah */}
+                <div className="mt-4 pt-3 border-t border-[#E8E2D6]/70 dark:border-[#232E2F] flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-semibold text-[#8E9B98] block">
+                      {isRtl ? 'نسبة الإتقان' : 'Mastery'}
+                    </span>
+                    <span className="text-xs font-bold text-[#1A4D4E] dark:text-[#E8ECE9]">
+                      {masteredAyahs}/{surah.numberOfAyahs} {isRtl ? 'آية' : 'Ayahs'}
+                    </span>
+                  </div>
 
-              {/* Progress */}
-              <div className="mt-3 pt-3 border-t border-[#E8E2D6]/70 dark:border-[#232E2F] flex items-center justify-between text-[11px]">
-                <span className="text-[#8E9B98]">{isRtl ? 'الإتقان' : 'Mastery'}</span>
-                <span className="font-bold text-[#1A4D4E] dark:text-[#72D6A5]">{surah.memorizationProgress}%</span>
+                  <div className="relative">
+                    <CircularProgress
+                      value={surah.memorizationProgress}
+                      size={48}
+                      strokeWidth={4.5}
+                      color={
+                        isComplete
+                          ? '#72D6A5'
+                          : surah.memorizationProgress >= 70
+                          ? '#C5A059'
+                          : surah.memorizationProgress >= 40
+                          ? '#27827E'
+                          : '#D96E54'
+                      }
+                      trackColor="currentColor"
+                      className="text-[#E8E2D6] dark:text-[#232E2F]"
+                      centerText={
+                        isComplete ? (
+                          <CheckCircle2 className="w-4 h-4 text-[#72D6A5]" />
+                        ) : (
+                          <span className="text-[11px] font-bold font-mono text-[#1A4D4E] dark:text-[#E8ECE9]">
+                            {surah.memorizationProgress}%
+                          </span>
+                        )
+                      }
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="w-full h-1 bg-[#E8E2D6] dark:bg-[#232E2F] rounded-full mt-1 overflow-hidden">
-                <div className="h-full bg-[#C5A059] rounded-full" style={{ width: `${surah.memorizationProgress}%` }} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

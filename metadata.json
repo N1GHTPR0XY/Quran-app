@@ -1,6 +1,6 @@
 {
   "name": "Tadreeb - Quran Memorization & Recitation Training",
-  "description": "Interactive Quran recitation and memorization trainer with Surah/Ayah/Page navigation, real-time Tajweed rules analysis (Shedda, Izhar, Ikhfa, Idgham, Iqlab, Qalqalah, Madd), pure Arabic/English voice coaching, acoustic review, and shareable PDF reports.",
+  "description": "Interactive Quran recitation and memorization trainer with Surah/Ayah/Page navigation, real-time Tajweed rules analysis, pure Arabic/English voice coaching, acoustic review, high-accuracy printable PDF certificates for full Surah completions, and milestone tracking.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

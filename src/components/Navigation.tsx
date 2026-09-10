@@ -11,7 +11,6 @@ import {
   Sun,
   Moon,
   Languages,
-  BookMarked,
   ShieldCheck
 } from 'lucide-react';
 
@@ -43,8 +42,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'review', label: direction === 'rtl' ? 'المراجعة' : 'Review', icon: <RotateCcw className="w-5 h-5" />, badge: '3' },
     { id: 'analytics', label: direction === 'rtl' ? 'الإحصاء' : 'Progress', icon: <BarChart2 className="w-5 h-5" /> },
     { id: 'audio-settings', label: direction === 'rtl' ? 'الصوت' : 'Audio', icon: <Sliders className="w-5 h-5" /> },
-    { id: 'profile', label: direction === 'rtl' ? 'الحساب' : 'Account', icon: <User className="w-5 h-5" /> },
-    { id: 'design-system', label: direction === 'rtl' ? 'النظام' : 'Spec', icon: <BookMarked className="w-5 h-5" /> }
+    { id: 'profile', label: direction === 'rtl' ? 'الحساب' : 'Account', icon: <User className="w-5 h-5" /> }
   ];
 
   return (
